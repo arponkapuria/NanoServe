@@ -1,0 +1,68 @@
+{
+  "step": "1_naive",
+  "timestamp": "2026-09-02T20:39:56",
+  "device": "mps",
+  "model": "Qwen/Qwen3-1.7B",
+  "config": {
+    "use_kv_cache": false,
+    "use_paged_kv": false,
+    "use_continuous_batching": false,
+    "use_scheduler": false,
+    "use_radix_cache": false,
+    "use_chunked_prefill": false,
+    "use_quantization": false,
+    "use_speculative_decoding": false
+  },
+  "preset": "medium",
+  "gen_len": 128,
+  "num_runs": 3,
+  "warmup_runs": 1,
+  "metrics": {
+    "ttft_mean": 0.2188764026698967,
+    "tpot_mean": 0.38552446083671094,
+    "throughput_tps": 2.5968639632511357,
+    "peak_memory_mb": 3447.52099609375,
+    "saturation_rps": null,
+    "mean_queue_time_ms": null,
+    "cache_hit_rate": null,
+    "quality_delta": null,
+    "draft_acceptance_rate": null
+  },
+  "per_run_metrics": [
+    {
+      "ttft_mean": 0.22233212500577793,
+      "tpot_mean": 0.3888215088261673,
+      "throughput_tps": 2.5746079759723846,
+      "peak_memory_mb": 3447.52099609375,
+      "saturation_rps": null,
+      "mean_queue_time_ms": null,
+      "cache_hit_rate": null,
+      "quality_delta": null,
+      "draft_acceptance_rate": null
+    },
+    {
+      "ttft_mean": 0.21486845798790455,
+      "tpot_mean": 0.3833188939987183,
+      "throughput_tps": 2.6116997411891303,
+      "peak_memory_mb": 3447.52099609375,
+      "saturation_rps": null,
+      "mean_queue_time_ms": null,
+      "cache_hit_rate": null,
+      "quality_delta": null,
+      "draft_acceptance_rate": null
+    },
+    {
+      "ttft_mean": 0.21942862501600757,
+      "tpot_mean": 0.3844329796852471,
+      "throughput_tps": 2.604284172591892,
+      "peak_memory_mb": 3447.52099609375,
+      "saturation_rps": null,
+      "mean_queue_time_ms": null,
+      "cache_hit_rate": null,
+      "quality_delta": null,
+      "draft_acceptance_rate": null
+    }
+  ],
+  "prompt": "Write a detailed explanation of how binary search trees work, including insertion, deletion, and lookup, and discuss their time complexity in the average and worst case. Use an example to illustrate when rebalancing is needed.",
+  "generated_text": "Binary Search Trees (BSTs) are a fundamental data structure in computer science, used for efficient insertion, deletion, and lookup operations. A BST is a tree in which each node has at most two children, and the following properties hold:\n\n### **BST Properties:**\n1. **For any node:**\n   - All nodes in the left subtree are less than the node.\n   - All nodes in the right subtree are greater than the node.\n2. **Root node:** The topmost node in the tree.\n3. **Left child:** A node that is less than the current node.\n4. **Right child:** A node"
+}
