@@ -22,14 +22,23 @@ def main():
     parser.add_argument("--gen-len", type=int, default=None)
     parser.add_argument("--warmup-runs", type=int, default=1)
     parser.add_argument("--use-kv-cache", action="store_true")
+    parser.add_argument("--use-paged-kv", action="store_true")
     args = parser.parse_args()
 
     prompt = build_prompt(args.preset)
     gen_len = args.gen_len or settings.GEN_LEN_DEFAULTS[args.preset]
 
+    if args.use_paged_kv:
+        step_name = "paged_kv"
+    elif args.use_kv_cache:
+        step_name = "kv_cache"
+    else:
+        step_name = "naive"
+
     config = EngineConfig(
-        use_kv_cache=args.use_kv_cache, use_paged_kv=False, use_continuous_batching=False,
-        use_scheduler=False, use_radix_cache=False, use_chunked_prefill=False,
+        use_kv_cache=args.use_kv_cache, use_paged_kv=args.use_paged_kv,
+        use_continuous_batching=False, use_scheduler=False,
+        use_radix_cache=False, use_chunked_prefill=False,
     )
 
     engine = NanoServeEngine(config)
@@ -56,8 +65,6 @@ def main():
     print(f"Throughput: {m.throughput_tps:.2f} tok/s")
     print(f"Peak mem:   {m.peak_memory_mb:.1f} MB")
     print(f"New tokens: {result['num_new_tokens']}")
-
-    step_name = "kv_cache" if args.use_kv_cache else "naive"
 
     record = {
         "step": step_name, 

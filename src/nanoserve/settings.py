@@ -2,6 +2,9 @@ from pathlib import Path
 
 MODEL_NAME = "Qwen/Qwen3-1.7B"
 DEVICE_OVERRIDE = None  # e.g. "cpu" to force off MPS
+PAGED_KV_BLOCK_SIZE = 16
+PAGED_KV_NUM_BLOCKS = 256
+NAIVE_MAX_RESERVED_TOKENS = 1024  # what a naive engine would reserve per sequence upfront
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CACHE_DIR = PROJECT_ROOT / ".cache"

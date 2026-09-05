@@ -1,0 +1,28 @@
+{
+  "step": "paged_kv_fragmentation",
+  "timestamp": "2026-09-05T12:04:20",
+  "internal_fragmentation": [
+    {
+      "preset": "short",
+      "actual_tokens": 79,
+      "paged_waste_pct": 1.25,
+      "naive_waste_pct": 92.29
+    },
+    {
+      "preset": "medium",
+      "actual_tokens": 183,
+      "paged_waste_pct": 4.69,
+      "naive_waste_pct": 82.13
+    },
+    {
+      "preset": "long",
+      "actual_tokens": 561,
+      "paged_waste_pct": 2.6,
+      "naive_waste_pct": 45.21
+    }
+  ],
+  "external_fragmentation": {
+    "paged_success": true,
+    "naive_success": false
+  }
+}

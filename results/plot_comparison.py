@@ -2,8 +2,8 @@
 Reusable comparison plotting utility for NanoServe results/*.json files.
 
 Usage:
-    python plot_comparison.py 1_naive 2_kv_cache
-    python plot_comparison.py 1_naive 2_kv_cache --title "Naive vs KV Cache" --out naive_vs_kvcache.png
+    python plot_comparison.py naive kv_cache
+    python plot_comparison.py naive kv_cache --title "Naive vs KV Cache" --out naive_vs_kvcache.png
 
 Reads results/<step>.json for each step name given, plots a grouped bar
 chart per metric (each run currently collapses to a single averaged bar —
@@ -64,7 +64,7 @@ def plot_comparison(
             metrics.append((key, label, scale))
 
     n_metrics = len(metrics)
-    cols = 2
+    cols = 4
     rows = (n_metrics + cols - 1) // cols
 
     fig, axes = plt.subplots(rows, cols, figsize=(11, 4.3 * rows), squeeze=False)
@@ -118,7 +118,7 @@ def plot_comparison(
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("steps", nargs="+", help="Step names, e.g. 1_naive 2_kv_cache")
+    parser.add_argument("steps", nargs="+", help="Step names, e.g. naive kv_cache")
     parser.add_argument("--title", default="Phase Comparison")
     parser.add_argument("--out", default="comparison.png")
     args = parser.parse_args()

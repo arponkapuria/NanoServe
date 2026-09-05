@@ -5,6 +5,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from . import settings, utils
 from .config import AggregateMetrics, EngineConfig
+from .paged_cache import PagedKVCache, PagedKVPool
 
 
 class NanoServeEngine:
@@ -20,6 +21,21 @@ class NanoServeEngine:
         self.model = AutoModelForCausalLM.from_pretrained(
             settings.MODEL_NAME, torch_dtype=torch.float16
         ).to(self.device)
+
+        self.pool = None
+        if self.config.use_paged_kv:
+            mc = self.model.config
+            head_dim = getattr(mc, "head_dim", mc.hidden_size // mc.num_attention_heads)
+            self.pool = PagedKVPool(
+                num_layers=mc.num_hidden_layers,
+                num_kv_heads=mc.num_key_value_heads,
+                head_dim=head_dim,
+                block_size=settings.PAGED_KV_BLOCK_SIZE,
+                num_blocks=settings.PAGED_KV_NUM_BLOCKS,
+                device=self.device,
+                dtype=torch.float16,
+            )
+
         self.model.eval()
 
     def _build_input_ids(self, prompt: str) -> torch.Tensor:
@@ -33,6 +49,8 @@ class NanoServeEngine:
         return self.tokenizer(text, return_tensors="pt").input_ids.to(self.device)
 
     def generate(self, prompt: str, max_new_tokens: int) -> dict:
+        if self.config.use_paged_kv:
+            return self._generate_paged_kv(prompt, max_new_tokens)
         if self.config.use_kv_cache:
             return self._generate_kv_cache(prompt, max_new_tokens)
         return self._generate_naive(prompt, max_new_tokens)
@@ -40,6 +58,7 @@ class NanoServeEngine:
     @torch.no_grad()
     def _generate_naive(self, prompt: str, max_new_tokens: int) -> dict:
         """No cache — full sequence recomputed every step. Step 1 baseline."""
+
         input_ids = self._build_input_ids(prompt)
         generated = input_ids
 
@@ -72,6 +91,7 @@ class NanoServeEngine:
     @torch.no_grad()
     def _generate_kv_cache(self, prompt: str, max_new_tokens: int) -> dict:
         """Prefill once, then feed only the newest token each step, reusing past_key_values."""
+
         input_ids = self._build_input_ids(prompt)
         generated = input_ids
 
@@ -101,6 +121,49 @@ class NanoServeEngine:
         total_time = time.perf_counter() - start
         return self._build_result(generated, input_ids, first_token_time, token_times, total_time)
 
+    @torch.no_grad()
+    def _generate_paged_kv(self, prompt: str, max_new_tokens: int) -> dict:
+        """Paged KV cache: block-based storage, gather-based attention (no fused
+        kernel on MPS — see project notes on why)."""
+
+        input_ids = self._build_input_ids(prompt)
+        cache = PagedKVCache(self.pool)
+
+        utils.reset_memory_stats()
+        utils.sync()
+        start = time.perf_counter()
+
+        try: 
+            seq_len = input_ids.shape[1]
+            cache.begin_step(seq_len)
+            cache_position = torch.arange(0, seq_len, device=self.device)
+            outputs = self.model(input_ids, past_key_values=cache, use_cache=True, cache_position=cache_position)
+            cache.commit_step()
+            next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
+            utils.sync()
+            first_token_time = time.perf_counter() - start
+            generated = torch.cat([input_ids, next_token], dim=1)
+
+            token_times = []
+            for _ in range(max_new_tokens - 1):
+                if next_token.item() == self.tokenizer.eos_token_id:
+                    break
+                step_start = time.perf_counter()
+                cache.begin_step(1)
+                cache_position = torch.tensor([cache.num_tokens], device=self.device)
+                outputs = self.model(next_token, past_key_values=cache, use_cache=True, cache_position=cache_position)
+                cache.commit_step()
+                next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
+                utils.sync()
+                token_times.append(time.perf_counter() - step_start)
+                generated = torch.cat([generated, next_token], dim=1)
+
+            total_time = time.perf_counter() - start
+            return self._build_result(generated, input_ids, first_token_time, token_times, total_time)
+        finally:
+            cache.free()
+                
+
     def _build_result(self, generated, input_ids, first_token_time, token_times, total_time) -> dict:
         num_new = generated.shape[1] - input_ids.shape[1]
         metrics = AggregateMetrics(
@@ -113,4 +176,5 @@ class NanoServeEngine:
             "text": self.tokenizer.decode(generated[0, input_ids.shape[1]:], skip_special_tokens=True),
             "metrics": metrics,
             "num_new_tokens": num_new,
+            "total_tokens": generated.shape[1],   # prompt + generated — what the cache actually holds
         }
