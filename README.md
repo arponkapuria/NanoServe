@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://python.org) [![PyTorch](https://img.shields.io/badge/PyTorch-2.6+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org) [![Transformers](https://img.shields.io/badge/🤗%20Transformers-4.45+-yellow)](https://huggingface.co/docs/transformers) [![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**A from-scratch LLM inference engine, engineered incrementally, phase by phase — every core serving optimization implemented from scratch, rigorously benchmarked, and unified into a production-style serving system.**
+**A mini LLM inference engine, build incrementally, phase by phase — every core serving optimization implemented from scratch, benchmarked, and unified into a production-style serving system.**
 
 [Motivation](#motivation) · [Development Phases](#development-phases) · [Project Structure](#project-structure) · [Getting Started](#getting-started)
 
@@ -22,17 +22,17 @@ Serving engines like vLLM, SGLang, and TensorRT-LLM are full of optimizations th
 
 | # | Topic | Description | Status | Writeup |
 |---|---|---|:---:|---|
-| 1 | Naive serving | Single-request baseline with no cache — every decode step recomputes the whole sequence from scratch. Establishes the numbers everything else is measured against. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-naive-decode-to-kv-caching/) |
-| 2 | KV caching | Hand-rolled key/value cache so each decode step only computes the new token instead of the entire sequence; measures why decode becomes memory-bandwidth bound once redundant compute is gone. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-naive-decode-to-kv-caching/) |
-| 3 | Paged KV cache | - | `WIP` | — |
-| 4 | Continuous batching | - | ⏳ | — |
-| 5 | Scheduler | - | ⏳ | — |
-| 6 | Radix Cache | - | ⏳ | — |
-| 7 | Chunked Prefill | - | ⏳ | — |
-| 8 | Quantization | - | ⏳ | — |
-| 9 | Speculative Decoding | - | ⏳ | — |
-| 10 | Load Testing | - | ⏳ | — |
-| 11 | Comparison | - | ⏳ | — |
+| 0 | Naive serving | Single-request baseline with no cache — every decode step recomputes the whole sequence from scratch. Establishes the numbers everything else is measured against. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-naive-decode-to-kv-caching/) |
+| 1 | KV caching | Prefill once, cache Keys/Values, feed only the newest token per decode step instead of recomputing the whole sequence. ~4x lower TPOT than naive on this hardware. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-naive-decode-to-kv-caching/) |
+| 2 | Paged KV cache | Block-based KV storage (fixed-size blocks + block table + free list) with gather-based attention, replacing vLLM's fused CUDA kernel — unavailable on MPS. Eliminates internal/external fragmentation at speed parity with plain KV cache. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-paged-kv-cache/) |
+| 3 | Continuous batching | - | ⏳ | — |
+| 4 | Scheduler | - | ⏳ | — |
+| 5 | Radix Cache | - | ⏳ | — |
+| 6 | Chunked Prefill | - | ⏳ | — |
+| 7 | Quantization | - | ⏳ | — |
+| 8 | Speculative Decoding | - | ⏳ | — |
+| 9 | Load Testing | - | ⏳ | — |
+| 10 | Comparison | - | ⏳ | — |
 
 
 
@@ -57,19 +57,25 @@ Each step is documented (blogs) as it's built, so the project doubles as a runni
 ```
 MicroServe/
 ├── src/microserve/
-│   ├── config.py           # metrics and engine configs
-│   ├── settings            # device detection, model/dtype config
-│   ├── engine.py           # naive decode, kv cache
-│   └── utils.py            # device-agnostic memory tracking
+│   ├── config.py                   # EngineConfig feature flags + AggregateMetrics dataclass
+│   ├── settings                    # device detection, model/dtype config
+│   ├── engine.py                   # naive decode, kv cache, paged_kv_cache
+│   ├── naive_baseline.py           # naive reservation allocator + simulated contiguous arena, for fragmentation comparison
+│   ├── paged_cache.py              # PagedKVPool (block allocator) + PagedKVCache (HF Cache subclass, gather-based attention)
+│   └── utils.py                    # device-agnostic memory tracking
 │
 ├── results/
 │   ├── naive.json
 │   ├── kv_cache.json
+│   ├── paged_kv.json
+│   ├── paged_kv_fragmentation.json
 │   ├── plot_comparison.py
-│   └── images/             # generated plots
+│   ├── plot_fragmentation.py   
+│   └── images/                     # generated plots
 │
-├── benchmark.py            # benchmarking and compare phases
-└── notes/                  # writeups explaining phases/results
+├── benchmark.py                    # benchmarking and compare phases
+├── test_fragmentation.py           # internal + external fragmentation tests, paged vs naive kv_cache
+└── notes/                          # writeups explaining phases/results
 ```
 
 ## Getting Started
@@ -89,15 +95,24 @@ uv sync
 
 ### Run a benchmark
 
-There are different prompt configurations in `settings.py` and based on the selection prompt, `max_tokens` length changes. 
+Prompt presets (`short`, `medium`, `long`, `prefix_shared`) are defined in `settings.py`, each with its own `max_new_tokens` length.
 
 ```bash
-
-# Naive baseline
+# Naive decode (baseline)
 uv run python benchmark.py --preset medium  
+```
 
+```bash
 # KV cache
-uv run python benchmark.py --preset medium --use-kv-cache  
+uv run python benchmark.py --preset medium --use-kv-cache 
+``` 
+
+```bash
+# Paged KV cache
+uv run python benchmark.py --preset medium --use-paged-kv
+
+# Fragmentation tests (internal + external, paged vs naive)
+uv run python test_fragmentation.py 
 ```
 
 Metrics and plots are written to `results/`.
