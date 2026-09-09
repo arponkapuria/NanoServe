@@ -28,6 +28,15 @@ def load_run(step_name: str) -> tuple[str, dict]:
     return step_name, record["metrics"]
 
 
+def load_run_from_key(step_name: str, key: str, label: str) -> tuple[str, dict]:
+    """For files that hold multiple named runs in one record (e.g. continuous_batching.json's
+    'sequential' vs 'batched'), instead of one file per run."""
+    path = RESULTS_DIR / f"{step_name}.json"
+    with open(path) as f:
+        record = json.load(f)
+    return label, record[key]
+
+
 def plot_comparison(
     runs: list[tuple[str, dict]],
     out_path: Path,
@@ -115,17 +124,24 @@ def plot_comparison(
 
     print(f"Saved comparison plot to {out_path}")
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("steps", nargs="+", help="Step names, e.g. naive kv_cache")
+    parser.add_argument("--keys", nargs="+", default=None,
+                         help="Sub-keys to pull from a single step's file, e.g. sequential batched")
+    parser.add_argument("--labels", nargs="+", default=None,
+                         help="Display labels matching --keys, e.g. Sequential 'Continuous Batching'")
     parser.add_argument("--title", default="Phase Comparison")
     parser.add_argument("--out", default="comparison.png")
     args = parser.parse_args()
 
-    runs = [load_run(step) for step in args.steps]
-    plot_comparison(runs, RESULTS_DIR / "images" / args.out, title=args.title)
+    if args.keys:
+        labels = args.labels or args.keys
+        runs = [load_run_from_key(args.steps[0], key, label) for key, label in zip(args.keys, labels)]
+    else:
+        runs = [load_run(step) for step in args.steps]
 
+    plot_comparison(runs, RESULTS_DIR / "images" / args.out, title=args.title)
 
 if __name__ == "__main__":
     main()

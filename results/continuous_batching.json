@@ -1,0 +1,1083 @@
+{
+  "step": "continuous_batching",
+  "timestamp": "2026-09-07T08:50:52",
+  "device": "mps",
+  "model": "Qwen/Qwen3-1.7B",
+  "config": {
+    "use_kv_cache": true,
+    "use_paged_kv": true,
+    "use_continuous_batching": true,
+    "use_scheduler": false,
+    "use_radix_cache": false,
+    "use_chunked_prefill": false,
+    "use_quantization": false,
+    "use_speculative_decoding": false
+  },
+  "sequential": {
+    "ttft_mean": 0.2598003519880068,
+    "ttft_p99": 0.46367812329903246,
+    "tpot_mean": 0.09898667454932415,
+    "tpot_p99": 0.10641453188355017,
+    "throughput_tps": 9.72165943866572,
+    "peak_memory_mb": 3746.344970703125,
+    "batch_occupancy_mean": 1.0,
+    "total_wall_s": 70.35835849994328,
+    "total_tokens": 684,
+    "per_request": [
+      {
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50
+      },
+      {
+        "prompt": "Write a detailed explanation of how binary search trees work, including insertion, deletion, and lookup, and discuss their time complexity in the average and worst case. Use an example to illustrate when rebalancing is needed.",
+        "generated_text": "Binary Search Trees (BSTs) are a fundamental data structure in computer science, used for efficient insertion, deletion, and lookup operations. They are based on the **binary search property**: for any node in the tree, all elements in the left subtree are less than the node, and all elements in the right subtree are greater than the node.\n\n---\n\n## **1. Structure of a Binary Search Tree**\n\nEach node in a BST has:\n\n- **A key** (value) to store.\n- **Left child**: a node with a key less than the current node.\n- **Right child**: a node with a key greater than the",
+        "num_generated_tokens": 128
+      },
+      {
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50
+      },
+      {
+        "prompt": "Write a detailed explanation of how binary search trees work, including insertion, deletion, and lookup, and discuss their time complexity in the average and worst case. Use an example to illustrate when rebalancing is needed.",
+        "generated_text": "Binary Search Trees (BSTs) are a fundamental data structure in computer science, used for efficient insertion, deletion, and lookup operations. They are based on the **binary search property**: for any node in the tree, all elements in the left subtree are less than the node, and all elements in the right subtree are greater than the node.\n\n---\n\n## **1. Structure of a Binary Search Tree**\n\nEach node in a BST has:\n\n- **A key** (value) to store.\n- **Left child**: a node with a key less than the current node.\n- **Right child**: a node with a key greater than the",
+        "num_generated_tokens": 128
+      },
+      {
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50
+      },
+      {
+        "prompt": "Write a detailed explanation of how binary search trees work, including insertion, deletion, and lookup, and discuss their time complexity in the average and worst case. Use an example to illustrate when rebalancing is needed.",
+        "generated_text": "Binary Search Trees (BSTs) are a fundamental data structure in computer science, used for efficient insertion, deletion, and lookup operations. They are based on the **binary search property**: for any node in the tree, all elements in the left subtree are less than the node, and all elements in the right subtree are greater than the node.\n\n---\n\n## **1. Structure of a Binary Search Tree**\n\nEach node in a BST has:\n\n- **A key** (value) to store.\n- **Left child**: a node with a key less than the current node.\n- **Right child**: a node with a key greater than the",
+        "num_generated_tokens": 128
+      },
+      {
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50
+      },
+      {
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50
+      },
+      {
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50
+      }
+    ]
+  },
+  "batched": {
+    "ttft_mean": 0.20650941208522353,
+    "tpot_mean": 0.42817599388908734,
+    "throughput_tps": 12.811486534164192,
+    "peak_memory_mb": 3794.118896484375,
+    "saturation_rps": null,
+    "mean_queue_time_ms": null,
+    "cache_hit_rate": null,
+    "quality_delta": null,
+    "draft_acceptance_rate": null,
+    "ttft_p99": 0.3515787450410426,
+    "tpot_p99": 0.7290769435954277,
+    "batch_occupancy_mean": 5.1923076923076925,
+    "num_requests": 9,
+    "total_tokens": 684,
+    "total_wall_s": 53.389588958001696,
+    "per_request": [
+      {
+        "request_id": 0,
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50,
+        "prompt_len": 29,
+        "finish_time_s": 22.473773417063057
+      },
+      {
+        "request_id": 2,
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50,
+        "prompt_len": 29,
+        "finish_time_s": 23.548869875026867
+      },
+      {
+        "request_id": 4,
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50,
+        "prompt_len": 29,
+        "finish_time_s": 23.548894542036578
+      },
+      {
+        "request_id": 6,
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50,
+        "prompt_len": 29,
+        "finish_time_s": 45.02771291707177
+      },
+      {
+        "request_id": 7,
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50,
+        "prompt_len": 29,
+        "finish_time_s": 45.78857454203535
+      },
+      {
+        "request_id": 8,
+        "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+        "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+        "num_generated_tokens": 50,
+        "prompt_len": 29,
+        "finish_time_s": 45.78861291706562
+      },
+      {
+        "request_id": 1,
+        "prompt": "Write a detailed explanation of how binary search trees work, including insertion, deletion, and lookup, and discuss their time complexity in the average and worst case. Use an example to illustrate when rebalancing is needed.",
+        "generated_text": "Binary Search Trees (BSTs) are a fundamental data structure in computer science, used for efficient insertion, deletion, and lookup operations. They are based on the **binary search property**: for any node in the tree, all elements in the left subtree are less than the node, and all elements in the right subtree are greater than the node.\n\n---\n\n## **1. Structure of a Binary Search Tree**\n\nEach node in a BST has:\n\n- **A key** (value) to store.\n- **Left child**: a node with a key less than the current node.\n- **Right child**: a node with a key greater than the",
+        "num_generated_tokens": 128,
+        "prompt_len": 55,
+        "finish_time_s": 53.266766375047155
+      },
+      {
+        "request_id": 3,
+        "prompt": "Write a detailed explanation of how binary search trees work, including insertion, deletion, and lookup, and discuss their time complexity in the average and worst case. Use an example to illustrate when rebalancing is needed.",
+        "generated_text": "Binary Search Trees (BSTs) are a fundamental data structure in computer science, used for efficient insertion, deletion, and lookup operations. They are based on the **binary search property**: for any node in the tree, all elements in the left subtree are less than the node, and all elements in the right subtree are greater than the node.\n\n---\n\n## **1. Structure of a Binary Search Tree**\n\nEach node in a BST has:\n\n- **A key** (value) to store.\n- **Left child**: a node with a key less than the current node.\n- **Right child**: a node with a key greater than the",
+        "num_generated_tokens": 128,
+        "prompt_len": 55,
+        "finish_time_s": 53.266828083083965
+      },
+      {
+        "request_id": 5,
+        "prompt": "Write a detailed explanation of how binary search trees work, including insertion, deletion, and lookup, and discuss their time complexity in the average and worst case. Use an example to illustrate when rebalancing is needed.",
+        "generated_text": "Binary Search Trees (BSTs) are a fundamental data structure in computer science, used for efficient insertion, deletion, and lookup operations. They are based on the **binary search property**: for any node in the tree, all elements in the left subtree are less than the node, and all elements in the right subtree are greater than the node.\n\n---\n\n## **1. Structure of a Binary Search Tree**\n\nEach node in a BST has:\n\n- **A key** (value) to store.\n- **Left child**: a node with a key less than the current node.\n- **Right child**: a node with a key greater than the",
+        "num_generated_tokens": 128,
+        "prompt_len": 55,
+        "finish_time_s": 53.389554000110365
+      }
+    ],
+    "step_trace": [
+      {
+        "step_index": 0,
+        "num_active": 1,
+        "blocks_needed": 2,
+        "max_len": 30,
+        "step_duration_ms": 103.9356249384582
+      },
+      {
+        "step_index": 1,
+        "num_active": 1,
+        "blocks_needed": 2,
+        "max_len": 31,
+        "step_duration_ms": 95.73791699949652
+      },
+      {
+        "step_index": 2,
+        "num_active": 5,
+        "blocks_needed": 4,
+        "max_len": 56,
+        "step_duration_ms": 348.2116659870371
+      },
+      {
+        "step_index": 3,
+        "num_active": 6,
+        "blocks_needed": 4,
+        "max_len": 57,
+        "step_duration_ms": 464.9108750745654
+      },
+      {
+        "step_index": 4,
+        "num_active": 6,
+        "blocks_needed": 4,
+        "max_len": 58,
+        "step_duration_ms": 511.26220799051225
+      },
+      {
+        "step_index": 5,
+        "num_active": 6,
+        "blocks_needed": 4,
+        "max_len": 59,
+        "step_duration_ms": 538.1309159565717
+      },
+      {
+        "step_index": 6,
+        "num_active": 6,
+        "blocks_needed": 4,
+        "max_len": 60,
+        "step_duration_ms": 492.19887505751103
+      },
+      {
+        "step_index": 7,
+        "num_active": 6,
+        "blocks_needed": 4,
+        "max_len": 61,
+        "step_duration_ms": 450.82316698972136
+      },
+      {
+        "step_index": 8,
+        "num_active": 6,
+        "blocks_needed": 4,
+        "max_len": 62,
+        "step_duration_ms": 396.8370830407366
+      },
+      {
+        "step_index": 9,
+        "num_active": 6,
+        "blocks_needed": 4,
+        "max_len": 63,
+        "step_duration_ms": 426.9716669805348
+      },
+      {
+        "step_index": 10,
+        "num_active": 6,
+        "blocks_needed": 4,
+        "max_len": 64,
+        "step_duration_ms": 418.95912506151944
+      },
+      {
+        "step_index": 11,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 65,
+        "step_duration_ms": 406.97679098229855
+      },
+      {
+        "step_index": 12,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 66,
+        "step_duration_ms": 418.36308303754777
+      },
+      {
+        "step_index": 13,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 67,
+        "step_duration_ms": 415.2865409851074
+      },
+      {
+        "step_index": 14,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 68,
+        "step_duration_ms": 386.3860840210691
+      },
+      {
+        "step_index": 15,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 69,
+        "step_duration_ms": 418.9767079660669
+      },
+      {
+        "step_index": 16,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 70,
+        "step_duration_ms": 396.2814999977127
+      },
+      {
+        "step_index": 17,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 71,
+        "step_duration_ms": 458.3799580577761
+      },
+      {
+        "step_index": 18,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 72,
+        "step_duration_ms": 391.6492909193039
+      },
+      {
+        "step_index": 19,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 73,
+        "step_duration_ms": 404.67345796059817
+      },
+      {
+        "step_index": 20,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 74,
+        "step_duration_ms": 401.8886670237407
+      },
+      {
+        "step_index": 21,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 75,
+        "step_duration_ms": 394.29087506141514
+      },
+      {
+        "step_index": 22,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 76,
+        "step_duration_ms": 405.32658307347447
+      },
+      {
+        "step_index": 23,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 77,
+        "step_duration_ms": 403.92195899039507
+      },
+      {
+        "step_index": 24,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 78,
+        "step_duration_ms": 404.16766598355025
+      },
+      {
+        "step_index": 25,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 79,
+        "step_duration_ms": 410.2773329941556
+      },
+      {
+        "step_index": 26,
+        "num_active": 6,
+        "blocks_needed": 5,
+        "max_len": 80,
+        "step_duration_ms": 406.11475007608533
+      },
+      {
+        "step_index": 27,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 81,
+        "step_duration_ms": 410.91845906339586
+      },
+      {
+        "step_index": 28,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 82,
+        "step_duration_ms": 710.0018749479204
+      },
+      {
+        "step_index": 29,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 83,
+        "step_duration_ms": 435.79383299220353
+      },
+      {
+        "step_index": 30,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 84,
+        "step_duration_ms": 431.52737501077354
+      },
+      {
+        "step_index": 31,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 85,
+        "step_duration_ms": 407.74720802437514
+      },
+      {
+        "step_index": 32,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 86,
+        "step_duration_ms": 419.34799996670336
+      },
+      {
+        "step_index": 33,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 87,
+        "step_duration_ms": 411.0018339706585
+      },
+      {
+        "step_index": 34,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 88,
+        "step_duration_ms": 406.45870799198747
+      },
+      {
+        "step_index": 35,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 89,
+        "step_duration_ms": 415.68450001068413
+      },
+      {
+        "step_index": 36,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 90,
+        "step_duration_ms": 408.64333405625075
+      },
+      {
+        "step_index": 37,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 91,
+        "step_duration_ms": 408.6760840145871
+      },
+      {
+        "step_index": 38,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 92,
+        "step_duration_ms": 412.6566250342876
+      },
+      {
+        "step_index": 39,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 93,
+        "step_duration_ms": 438.70745808817446
+      },
+      {
+        "step_index": 40,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 94,
+        "step_duration_ms": 437.10375006776303
+      },
+      {
+        "step_index": 41,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 95,
+        "step_duration_ms": 421.43954103812575
+      },
+      {
+        "step_index": 42,
+        "num_active": 6,
+        "blocks_needed": 6,
+        "max_len": 96,
+        "step_duration_ms": 430.42566697113216
+      },
+      {
+        "step_index": 43,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 97,
+        "step_duration_ms": 456.74337493255734
+      },
+      {
+        "step_index": 44,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 98,
+        "step_duration_ms": 426.10783292911947
+      },
+      {
+        "step_index": 45,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 99,
+        "step_duration_ms": 444.68337506987154
+      },
+      {
+        "step_index": 46,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 100,
+        "step_duration_ms": 457.10908400360495
+      },
+      {
+        "step_index": 47,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 101,
+        "step_duration_ms": 427.12195799686015
+      },
+      {
+        "step_index": 48,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 102,
+        "step_duration_ms": 423.5018340405077
+      },
+      {
+        "step_index": 49,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 103,
+        "step_duration_ms": 423.24995901435614
+      },
+      {
+        "step_index": 50,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 104,
+        "step_duration_ms": 419.458374963142
+      },
+      {
+        "step_index": 51,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 105,
+        "step_duration_ms": 434.56187506671995
+      },
+      {
+        "step_index": 52,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 106,
+        "step_duration_ms": 410.4834160534665
+      },
+      {
+        "step_index": 53,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 107,
+        "step_duration_ms": 417.8727080579847
+      },
+      {
+        "step_index": 54,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 108,
+        "step_duration_ms": 469.3934159586206
+      },
+      {
+        "step_index": 55,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 109,
+        "step_duration_ms": 423.98666695225984
+      },
+      {
+        "step_index": 56,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 110,
+        "step_duration_ms": 431.44545797258615
+      },
+      {
+        "step_index": 57,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 111,
+        "step_duration_ms": 426.60079104825854
+      },
+      {
+        "step_index": 58,
+        "num_active": 6,
+        "blocks_needed": 7,
+        "max_len": 112,
+        "step_duration_ms": 416.4749589981511
+      },
+      {
+        "step_index": 59,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 113,
+        "step_duration_ms": 447.6399589329958
+      },
+      {
+        "step_index": 60,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 114,
+        "step_duration_ms": 429.77991700172424
+      },
+      {
+        "step_index": 61,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 115,
+        "step_duration_ms": 430.0679590087384
+      },
+      {
+        "step_index": 62,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 116,
+        "step_duration_ms": 447.2317920299247
+      },
+      {
+        "step_index": 63,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 117,
+        "step_duration_ms": 438.2082080701366
+      },
+      {
+        "step_index": 64,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 118,
+        "step_duration_ms": 440.4898750362918
+      },
+      {
+        "step_index": 65,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 119,
+        "step_duration_ms": 441.22579193208367
+      },
+      {
+        "step_index": 66,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 120,
+        "step_duration_ms": 462.92474993970245
+      },
+      {
+        "step_index": 67,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 121,
+        "step_duration_ms": 435.0066250190139
+      },
+      {
+        "step_index": 68,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 122,
+        "step_duration_ms": 429.50491700321436
+      },
+      {
+        "step_index": 69,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 123,
+        "step_duration_ms": 449.2573329480365
+      },
+      {
+        "step_index": 70,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 124,
+        "step_duration_ms": 426.7470830818638
+      },
+      {
+        "step_index": 71,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 125,
+        "step_duration_ms": 434.075208962895
+      },
+      {
+        "step_index": 72,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 126,
+        "step_duration_ms": 421.33379203733057
+      },
+      {
+        "step_index": 73,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 127,
+        "step_duration_ms": 431.81254202499986
+      },
+      {
+        "step_index": 74,
+        "num_active": 6,
+        "blocks_needed": 8,
+        "max_len": 128,
+        "step_duration_ms": 433.7505829753354
+      },
+      {
+        "step_index": 75,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 129,
+        "step_duration_ms": 429.9163749674335
+      },
+      {
+        "step_index": 76,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 130,
+        "step_duration_ms": 445.0760829495266
+      },
+      {
+        "step_index": 77,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 131,
+        "step_duration_ms": 442.2072080196813
+      },
+      {
+        "step_index": 78,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 132,
+        "step_duration_ms": 488.59683296177536
+      },
+      {
+        "step_index": 79,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 133,
+        "step_duration_ms": 438.41962493024766
+      },
+      {
+        "step_index": 80,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 134,
+        "step_duration_ms": 444.90079197566956
+      },
+      {
+        "step_index": 81,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 135,
+        "step_duration_ms": 436.82379205711186
+      },
+      {
+        "step_index": 82,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 136,
+        "step_duration_ms": 445.0667080236599
+      },
+      {
+        "step_index": 83,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 137,
+        "step_duration_ms": 432.5423330301419
+      },
+      {
+        "step_index": 84,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 138,
+        "step_duration_ms": 436.80920801125467
+      },
+      {
+        "step_index": 85,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 139,
+        "step_duration_ms": 440.8195420401171
+      },
+      {
+        "step_index": 86,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 140,
+        "step_duration_ms": 442.3921250272542
+      },
+      {
+        "step_index": 87,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 141,
+        "step_duration_ms": 450.73383406270295
+      },
+      {
+        "step_index": 88,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 142,
+        "step_duration_ms": 428.84083290118724
+      },
+      {
+        "step_index": 89,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 143,
+        "step_duration_ms": 433.9318329002708
+      },
+      {
+        "step_index": 90,
+        "num_active": 6,
+        "blocks_needed": 9,
+        "max_len": 144,
+        "step_duration_ms": 471.08245897106826
+      },
+      {
+        "step_index": 91,
+        "num_active": 6,
+        "blocks_needed": 10,
+        "max_len": 145,
+        "step_duration_ms": 465.5325000640005
+      },
+      {
+        "step_index": 92,
+        "num_active": 6,
+        "blocks_needed": 10,
+        "max_len": 146,
+        "step_duration_ms": 445.1028750045225
+      },
+      {
+        "step_index": 93,
+        "num_active": 6,
+        "blocks_needed": 10,
+        "max_len": 147,
+        "step_duration_ms": 437.73554207291454
+      },
+      {
+        "step_index": 94,
+        "num_active": 6,
+        "blocks_needed": 10,
+        "max_len": 148,
+        "step_duration_ms": 447.8147500194609
+      },
+      {
+        "step_index": 95,
+        "num_active": 6,
+        "blocks_needed": 10,
+        "max_len": 149,
+        "step_duration_ms": 457.55591709166765
+      },
+      {
+        "step_index": 96,
+        "num_active": 6,
+        "blocks_needed": 10,
+        "max_len": 150,
+        "step_duration_ms": 443.3768750168383
+      },
+      {
+        "step_index": 97,
+        "num_active": 6,
+        "blocks_needed": 10,
+        "max_len": 151,
+        "step_duration_ms": 460.5749159818515
+      },
+      {
+        "step_index": 98,
+        "num_active": 5,
+        "blocks_needed": 10,
+        "max_len": 152,
+        "step_duration_ms": 385.70858305320144
+      },
+      {
+        "step_index": 99,
+        "num_active": 5,
+        "blocks_needed": 10,
+        "max_len": 153,
+        "step_duration_ms": 364.89025002811104
+      },
+      {
+        "step_index": 100,
+        "num_active": 3,
+        "blocks_needed": 10,
+        "max_len": 154,
+        "step_duration_ms": 251.54262490104884
+      },
+      {
+        "step_index": 101,
+        "num_active": 3,
+        "blocks_needed": 10,
+        "max_len": 155,
+        "step_duration_ms": 260.75474999379367
+      },
+      {
+        "step_index": 102,
+        "num_active": 3,
+        "blocks_needed": 10,
+        "max_len": 156,
+        "step_duration_ms": 242.2463339753449
+      },
+      {
+        "step_index": 103,
+        "num_active": 3,
+        "blocks_needed": 10,
+        "max_len": 157,
+        "step_duration_ms": 242.5306250806898
+      },
+      {
+        "step_index": 104,
+        "num_active": 3,
+        "blocks_needed": 10,
+        "max_len": 158,
+        "step_duration_ms": 247.05333402380347
+      },
+      {
+        "step_index": 105,
+        "num_active": 3,
+        "blocks_needed": 10,
+        "max_len": 159,
+        "step_duration_ms": 260.05504198838025
+      },
+      {
+        "step_index": 106,
+        "num_active": 3,
+        "blocks_needed": 10,
+        "max_len": 160,
+        "step_duration_ms": 263.6898329947144
+      },
+      {
+        "step_index": 107,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 161,
+        "step_duration_ms": 239.7130000172183
+      },
+      {
+        "step_index": 108,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 162,
+        "step_duration_ms": 241.24620901420712
+      },
+      {
+        "step_index": 109,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 163,
+        "step_duration_ms": 249.361666967161
+      },
+      {
+        "step_index": 110,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 164,
+        "step_duration_ms": 252.47754191514105
+      },
+      {
+        "step_index": 111,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 165,
+        "step_duration_ms": 254.49945800937712
+      },
+      {
+        "step_index": 112,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 166,
+        "step_duration_ms": 232.096332940273
+      },
+      {
+        "step_index": 113,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 167,
+        "step_duration_ms": 253.8735830457881
+      },
+      {
+        "step_index": 114,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 168,
+        "step_duration_ms": 246.3887908961624
+      },
+      {
+        "step_index": 115,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 169,
+        "step_duration_ms": 260.77766704838723
+      },
+      {
+        "step_index": 116,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 170,
+        "step_duration_ms": 234.4584169331938
+      },
+      {
+        "step_index": 117,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 171,
+        "step_duration_ms": 257.0496660191566
+      },
+      {
+        "step_index": 118,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 172,
+        "step_duration_ms": 259.80841706041247
+      },
+      {
+        "step_index": 119,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 173,
+        "step_duration_ms": 250.23766607046127
+      },
+      {
+        "step_index": 120,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 174,
+        "step_duration_ms": 255.35437499638647
+      },
+      {
+        "step_index": 121,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 175,
+        "step_duration_ms": 259.35708393808454
+      },
+      {
+        "step_index": 122,
+        "num_active": 3,
+        "blocks_needed": 11,
+        "max_len": 176,
+        "step_duration_ms": 255.65620802808553
+      },
+      {
+        "step_index": 123,
+        "num_active": 3,
+        "blocks_needed": 12,
+        "max_len": 177,
+        "step_duration_ms": 258.8262079516426
+      },
+      {
+        "step_index": 124,
+        "num_active": 3,
+        "blocks_needed": 12,
+        "max_len": 178,
+        "step_duration_ms": 239.71170803997666
+      },
+      {
+        "step_index": 125,
+        "num_active": 3,
+        "blocks_needed": 12,
+        "max_len": 179,
+        "step_duration_ms": 258.35450005251914
+      },
+      {
+        "step_index": 126,
+        "num_active": 3,
+        "blocks_needed": 12,
+        "max_len": 180,
+        "step_duration_ms": 260.4647920234129
+      },
+      {
+        "step_index": 127,
+        "num_active": 3,
+        "blocks_needed": 12,
+        "max_len": 181,
+        "step_duration_ms": 251.33183307480067
+      },
+      {
+        "step_index": 128,
+        "num_active": 3,
+        "blocks_needed": 12,
+        "max_len": 182,
+        "step_duration_ms": 264.6548330085352
+      },
+      {
+        "step_index": 129,
+        "num_active": 1,
+        "blocks_needed": 12,
+        "max_len": 182,
+        "step_duration_ms": 118.55725001078099
+      }
+    ]
+  },
+  "concurrent_capacity": {
+    "total_pool_tokens": 4096,
+    "naive_capacity": 4,
+    "paged_capacity": 36,
+    "avg_tokens_per_request": 113.66666666666667
+  }
+}

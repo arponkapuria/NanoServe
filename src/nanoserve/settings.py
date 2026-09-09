@@ -43,3 +43,20 @@ GEN_LEN_DEFAULTS = {
     "long": 128,
     "prefix_shared": 32,
 }
+
+# cap on concurrent decode-batch membership. 
+# Bump on bigger hardware (along with PAGED_KV_NUM_BLOCKS) 
+MAX_BATCH_SIZE = 6
+
+CONTINUOUS_BATCH_REQUESTS = [
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 0.0},
+    {"prompt": BENCHMARK_PROMPTS["medium"], "max_new_tokens": GEN_LEN_DEFAULTS["medium"], "arrival_delay": 0.3},
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 0.6},
+    {"prompt": BENCHMARK_PROMPTS["medium"], "max_new_tokens": GEN_LEN_DEFAULTS["medium"], "arrival_delay": 0.9},
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 1.2},
+    {"prompt": BENCHMARK_PROMPTS["medium"], "max_new_tokens": GEN_LEN_DEFAULTS["medium"], "arrival_delay": 1.5},
+    # backfill: dynamically timed against real finish times (21.65s / 22.39s / 22.39s)
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 21.8},
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 22.5},
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 22.6},
+]

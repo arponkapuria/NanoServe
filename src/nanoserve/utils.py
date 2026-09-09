@@ -26,6 +26,17 @@ def peak_memory_mb() -> float:
     return torch.accelerator.max_memory_allocated() / (1024 ** 2)
 
 
+def percentile(values: list[float], p: float) -> float:
+    if not values:
+        return 0.0
+    s = sorted(values)
+    k = (len(s) - 1) * (p / 100)
+    f, c = int(k), min(int(k) + 1, len(s) - 1)
+    if f == c:
+        return s[f]
+    return s[f] + (s[c] - s[f]) * (k - f)
+
+
 def save_results(step_name: str, record: dict, results_dir: Path) -> Path:
     results_dir.mkdir(parents=True, exist_ok=True)
     path = results_dir / f"{step_name}.json"

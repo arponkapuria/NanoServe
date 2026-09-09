@@ -24,3 +24,6 @@ class AggregateMetrics:
     cache_hit_rate: float | None = None
     quality_delta: float | None = None
     draft_acceptance_rate: float | None = None
+    ttft_p99: float | None = None
+    tpot_p99: float | None = None
+    batch_occupancy_mean: float | None = None

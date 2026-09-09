@@ -98,3 +98,99 @@ class PagedKVCache(Cache):
         self.block_table = []
         self.num_tokens = 0
 
+
+class BatchedDecodeCache(Cache):
+    """Decode-phase cache shared by multiple concurrent requests. Each request keeps
+    its own block_table + num_tokens (handed over from its PagedKVCache right after
+    prefill). Every decode step batches whichever requests are currently active into
+    one forward call — this is the actual mechanism continuous batching relies on."""
+
+    def __init__(self, pool: PagedKVPool):
+        self.pool = pool
+        self.requests: dict[int, dict] = {}
+        self.active_ids: list[int] = []
+
+    def add_request(self, req_id: int, block_table: list[int], num_tokens: int) -> None:
+        device = self.pool.k_pool.device
+        bt_tensor = torch.tensor(block_table, dtype=torch.long, device=device)
+        self.requests[req_id] = {
+            "block_table": list(block_table), "block_table_tensor": bt_tensor, "num_tokens": num_tokens,
+        }
+
+    def remove_request(self, req_id: int) -> None:
+        state = self.requests.pop(req_id)
+        self.pool.release(state["block_table"])
+
+    def begin_step(self, active_ids: list[int]) -> torch.Tensor:
+        """Allocates this step's new-token block for each active request, and builds
+        the batched write/read indices ONCE — same 'compute once, reuse across 28
+        layers' pattern as step 3's begin_step, now with a batch dimension. Returns
+        position_ids since each request sits at a different absolute position."""
+        self.active_ids = active_ids
+        block_size = self.pool.block_size
+        device = self.pool.k_pool.device
+
+        write_phys, write_slot, positions = [], [], []
+        max_len = 0
+        for rid in active_ids:
+            st = self.requests[rid]
+            pos = st["num_tokens"]
+            needed_blocks = -(-(pos + 1) // block_size)
+            if needed_blocks > len(st["block_table"]):
+                new_blocks = self.pool.allocate(needed_blocks - len(st["block_table"]))
+                st["block_table"] += new_blocks
+                new_tensor = torch.tensor(new_blocks, dtype=torch.long, device=device)
+                st["block_table_tensor"] = torch.cat([st["block_table_tensor"], new_tensor])
+            write_phys.append(st["block_table"][pos // block_size])
+            write_slot.append(pos % block_size)
+            positions.append(pos)
+            max_len = max(max_len, pos + 1)
+
+        self._write_phys = torch.tensor(write_phys, device=device)
+        self._write_slot = torch.tensor(write_slot, device=device)
+        self._max_len = max_len
+
+        blocks_needed = -(-max_len // block_size)
+        table = torch.zeros((len(active_ids), blocks_needed), dtype=torch.long, device=device)
+        for i, rid in enumerate(active_ids):
+            bt_tensor = self.requests[rid]["block_table_tensor"][:blocks_needed]
+            table[i, :bt_tensor.shape[0]] = bt_tensor
+        self._read_table = table
+
+        real_lens = torch.tensor([self.requests[rid]["num_tokens"] + 1 for rid in active_ids], device=device)
+        idx = torch.arange(blocks_needed * block_size, device=device).unsqueeze(0)
+        pad_mask = (idx < real_lens.unsqueeze(1))[:, :max_len]  # (batch, max_len) True=real token
+
+        neg_inf = torch.finfo(torch.float16).min
+        self._attn_bias = torch.zeros((len(active_ids), 1, 1, max_len), dtype=torch.float16, device=device)
+        self._attn_bias.masked_fill_(~pad_mask.view(len(active_ids), 1, 1, max_len), neg_inf)
+
+        return torch.tensor(positions, device=device).unsqueeze(1)  # (batch, 1)
+
+    def commit_step(self) -> None:
+        for rid in self.active_ids:
+            self.requests[rid]["num_tokens"] += 1
+
+    def update(self, key_states, value_states, layer_idx, cache_kwargs=None):
+        block_size = self.pool.block_size
+        batch = len(self.active_ids)
+
+        self.pool.k_pool[layer_idx, self._write_phys, :, self._write_slot, :] = key_states[:, :, 0, :]
+        self.pool.v_pool[layer_idx, self._write_phys, :, self._write_slot, :] = value_states[:, :, 0, :]
+
+        k = self.pool.k_pool[layer_idx][self._read_table]   # (batch, blocks, kv_heads, block_size, head_dim)
+        v = self.pool.v_pool[layer_idx][self._read_table]
+        num_kv_heads, head_dim = k.shape[2], k.shape[4]
+        blocks_needed = self._read_table.shape[1]
+        k = k.permute(0, 2, 1, 3, 4).reshape(batch, num_kv_heads, blocks_needed * block_size, head_dim)[:, :, :self._max_len, :]
+        v = v.permute(0, 2, 1, 3, 4).reshape(batch, num_kv_heads, blocks_needed * block_size, head_dim)[:, :, :self._max_len, :]
+        return k, v
+
+    def get_seq_length(self, layer_idx: int = 0) -> int:
+        return self._max_len
+
+    def get_mask_sizes(self, cache_position, layer_idx: int = 0) -> tuple[int, int]:
+        return self._max_len, 0
+
+    def get_max_cache_shape(self) -> int | None:
+        return None

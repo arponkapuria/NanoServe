@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://python.org) [![PyTorch](https://img.shields.io/badge/PyTorch-2.6+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org) [![Transformers](https://img.shields.io/badge/🤗%20Transformers-4.45+-yellow)](https://huggingface.co/docs/transformers) [![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**A mini LLM inference engine, build incrementally, phase by phase — every core serving optimization implemented from scratch, benchmarked, and unified into a production-style serving system.**
+**A tiny LLM inference engine, build incrementally, phase by phase — every core serving optimization implemented from scratch, benchmarked, and unified into a production-style serving system.**
 
 [Motivation](#motivation) · [Development Phases](#development-phases) · [Project Structure](#project-structure) · [Getting Started](#getting-started)
 
@@ -23,8 +23,9 @@ Serving engines like vLLM, SGLang, and TensorRT-LLM are full of optimizations th
 | # | Topic | Description | Status | Writeup |
 |---|---|---|:---:|---|
 | 0 | Naive serving | Single-request baseline with no cache — every decode step recomputes the whole sequence from scratch. Establishes the numbers everything else is measured against. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-naive-decode-to-kv-caching/) |
-| 1 | KV caching | Prefill once, cache Keys/Values, feed only the newest token per decode step instead of recomputing the whole sequence. ~4x lower TPOT than naive on this hardware. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-naive-decode-to-kv-caching/) |
+| 1 | KV caching | Prefill once, cache Keys/Values, feed only the newest token per decode step instead of recomputing the whole sequence. ~4x lower TPOT and ~3.5x higher throuput than naive on this hardware. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-naive-decode-to-kv-caching/) |
 | 2 | Paged KV cache | Block-based KV storage (fixed-size blocks + block table + free list) with gather-based attention, replacing vLLM's fused CUDA kernel — unavailable on MPS. Eliminates internal/external fragmentation at speed parity with plain KV cache. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-paged-kv-cache/) |
+| 3 | Continuous batching | Iteration-level scheduler that shares the accelerator across multiple concurrent requests instead of serving one at a time — admits/evicts requests every decode step via a shared, multi-tenant paged KV cache. +31.8% system throughput over sequential serving; 36 vs. 4 concurrent requests fit in the same memory budget compared to naive fixed-reservation. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-continuous-batching/) |
 | 3 | Continuous batching | - | ⏳ | — |
 | 4 | Scheduler | - | ⏳ | — |
 | 5 | Radix Cache | - | ⏳ | — |
@@ -55,13 +56,13 @@ Each step is documented (blogs) as it's built, so the project doubles as a runni
 ## Project Structure
 
 ```
-MicroServe/
-├── src/microserve/
+NanoServe/
+├── src/nanoserve/
 │   ├── config.py                   # EngineConfig feature flags + AggregateMetrics dataclass
-│   ├── settings                    # device detection, model/dtype config
-│   ├── engine.py                   # naive decode, kv cache, paged_kv_cache
+│   ├── settings.py                 # device detection, model/dtype config, MAX_BATCH_SIZE, benchmark request presets
+│   ├── engine.py                   # naive decode, kv cache, paged_kv_cache, run_continuous_batch (iteration-level scheduler)
 │   ├── naive_baseline.py           # naive reservation allocator + simulated contiguous arena, for fragmentation comparison
-│   ├── paged_cache.py              # PagedKVPool (block allocator) + PagedKVCache (HF Cache subclass, gather-based attention)
+│   ├── paged_cache.py              # PagedKVPool (block allocator), PagedKVCache (single-request), BatchedDecodeCache (multi-tenant, shared decode batch)
 │   └── utils.py                    # device-agnostic memory tracking
 │
 ├── results/
@@ -69,11 +70,15 @@ MicroServe/
 │   ├── kv_cache.json
 │   ├── paged_kv.json
 │   ├── paged_kv_fragmentation.json
-│   ├── plot_comparison.py
-│   ├── plot_fragmentation.py   
+│   ├── continuous_batching.json
+│   ├── plot_comparison.py          # grouped-bar metric comparison across any two runs
+│   ├── plot_fragmentation.py
+│   ├── plot_capacity.py            # concurrent-capacity comparison (paged vs naive, same memory budget)
+│   ├── plot_occupancy.py           # batch occupancy over time, from continuous batching's step trace
 │   └── images/                     # generated plots
 │
 ├── benchmark.py                    # benchmarking and compare phases
+├── continuous_batch_bench.py       # sequential vs. continuous-batched run, same requests, same pool
 ├── test_fragmentation.py           # internal + external fragmentation tests, paged vs naive kv_cache
 └── notes/                          # writeups explaining phases/results
 ```
@@ -113,6 +118,11 @@ uv run python benchmark.py --preset medium --use-paged-kv
 
 # Fragmentation tests (internal + external, paged vs naive)
 uv run python test_fragmentation.py 
+```
+
+```bash
+# Continuous batching (sequential vs. batched, same requests, same pool)
+uv run python continuous_batch_bench.py
 ```
 
 Metrics and plots are written to `results/`.
