@@ -26,7 +26,6 @@ Serving engines like vLLM, SGLang, and TensorRT-LLM are full of optimizations th
 | 1 | KV caching | Prefill once, cache Keys/Values, feed only the newest token per decode step instead of recomputing the whole sequence. ~4x lower TPOT and ~3.5x higher throuput than naive on this hardware. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-naive-decode-to-kv-caching/) |
 | 2 | Paged KV cache | Block-based KV storage (fixed-size blocks + block table + free list) with gather-based attention, replacing vLLM's fused CUDA kernel — unavailable on MPS. Eliminates internal/external fragmentation at speed parity with plain KV cache. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-paged-kv-cache/) |
 | 3 | Continuous batching | Iteration-level scheduler that shares the accelerator across multiple concurrent requests instead of serving one at a time — admits/evicts requests every decode step via a shared, multi-tenant paged KV cache. +31.8% system throughput over sequential serving; 36 vs. 4 concurrent requests fit in the same memory budget compared to naive fixed-reservation. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-continuous-batching/) |
-| 3 | Continuous batching | - | ⏳ | — |
 | 4 | Scheduler | - | ⏳ | — |
 | 5 | Radix Cache | - | ⏳ | — |
 | 6 | Chunked Prefill | - | ⏳ | — |
