@@ -26,29 +26,13 @@ Serving engines like vLLM, SGLang, and TensorRT-LLM are full of optimizations th
 | 1 | KV caching | Prefill once, cache Keys/Values, feed only the newest token per decode step instead of recomputing the whole sequence. ~4x lower TPOT and ~3.5x higher throuput than naive on this hardware. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-naive-decode-to-kv-caching/) |
 | 2 | Paged KV cache | Block-based KV storage (fixed-size blocks + block table + free list) with gather-based attention, replacing vLLM's fused CUDA kernel — unavailable on MPS. Eliminates internal/external fragmentation at speed parity with plain KV cache. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-paged-kv-cache/) |
 | 3 | Continuous batching | Iteration-level scheduler that shares the accelerator across multiple concurrent requests instead of serving one at a time — admits/evicts requests every decode step via a shared, multi-tenant paged KV cache. +31.8% system throughput over sequential serving; 36 vs. 4 concurrent requests fit in the same memory budget compared to naive fixed-reservation. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-continuous-batching/) |
-| 4 | Scheduler | - | ⏳ | — |
+| 4 | Scheduler | FCFS admission queue with fixed-depth backpressure and per-request timeouts on top of continuous batching's admit-when-free policy. Tested with a two-wave burst — with a scheduler-off control run reproducing continuous batching's unbounded fallback exactly. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-scheduler/) |
 | 5 | Radix Cache | - | ⏳ | — |
 | 6 | Chunked Prefill | - | ⏳ | — |
 | 7 | Quantization | - | ⏳ | — |
 | 8 | Speculative Decoding | - | ⏳ | — |
 | 9 | Load Testing | - | ⏳ | — |
 | 10 | Comparison | - | ⏳ | — |
-
-
-
-<!-- | 3 | Continuous batching | Replaces one-request-at-a-time serving with iteration-level batching; measures the shift in TTFT, TPOT, and throughput under concurrent load. | `WIP` | — |
-| 4 | Request scheduling | Adds a request queue with priorities, backpressure, timeouts, and cancellation so the server degrades predictably under overload instead of falling over. | ⏳ | — |
-| 5 | Paged KV cache | Replaces contiguous KV allocation with block-based paged allocation; measures the fragmentation problem it fixes. | ⏳ | — |
-| 6 | Quantization | Surveys int8 / int4 / fp8 approaches and implements one, measuring the resulting speed/memory/quality trade-off. | ⏳ | — |
-| 7 | Speculative decoding | Implements draft-model speculative decoding and measures when — and whether — it actually speeds up generation at this model size. | ⏳ | — |
-| 8 | Observability | Exposes a `/metrics` endpoint with TTFT, inter-token latency, throughput, accelerator utilization, KV cache usage, and queue time in real time. | ⏳ | — |
-| 9 | Load testing at scale | Throws real concurrent traffic at the engine, finds the point where throughput stops scaling, and explains why using the observability data. | ⏳ | — |
-| 10 | Comparison vs. vLLM / SGLang / TensorRT-LLM | Studies their scheduling, KV cache, quantization, and speculative decoding design choices; writes up how MicroServe's approach differs and why. | ⏳ | — |
-| 11 | Accelerator path optimization | CUDA graphs, kernel fusion, custom attention kernels, and CPU/GPU sync tuning — on both CUDA and Apple Silicon. | ⏳ | — |
-| 12 | Advanced memory strategies | CPU KV cache offloading and prefix caching, beyond the basic paged implementation from Phase 5. | ⏳ | — |
-| 13 | Distributed serving | Multi-GPU serving, distributed inference, prefill/decode disaggregation, and request routing across multiple engine instances. | ⏳ | — |
-| 14 | UI | A usable front end on top of the engine, once the core serving logic is stable enough to be worth presenting. | ⏳ | — |
-| 15 | Unify into one product | Assembles every phase above into a single, cohesive inference engine — one product built from parts already proven in isolation. | ⏳ | — | -->
 
 Each step is documented (blogs) as it's built, so the project doubles as a running record of what was done and why, not just a finished artifact.
 
@@ -57,12 +41,13 @@ Each step is documented (blogs) as it's built, so the project doubles as a runni
 ```
 NanoServe/
 ├── src/nanoserve/
-│   ├── config.py                   # EngineConfig feature flags + AggregateMetrics dataclass
-│   ├── settings.py                 # device detection, model/dtype config, MAX_BATCH_SIZE, benchmark request presets
-│   ├── engine.py                   # naive decode, kv cache, paged_kv_cache, run_continuous_batch (iteration-level scheduler)
-│   ├── naive_baseline.py           # naive reservation allocator + simulated contiguous arena, for fragmentation comparison
-│   ├── paged_cache.py              # PagedKVPool (block allocator), PagedKVCache (single-request), BatchedDecodeCache (multi-tenant, shared decode batch)
-│   └── utils.py                    # device-agnostic memory tracking
+│   ├── config.py                       # EngineConfig feature flags + AggregateMetrics dataclass
+│   ├── settings.py                     # device detection, model/dtype config, MAX_BATCH_SIZE, MAX_QUEUE_DEPTH, MAX_QUEUE_WAIT_MS, benchmark request presets
+│   ├── engine.py                       # naive decode, kv cache, paged_kv_cache, run_continuous_batch (iteration-level scheduler, scheduler-aware admission)
+│   ├── scheduler.py                    # Scheduler: FCFS queue, fixed-depth backpressure, fixed-wait timeout — pure state-transition class, no clock/model calls
+│   ├── naive_baseline.py               # naive reservation allocator + simulated contiguous arena, for fragmentation comparison
+│   ├── paged_cache.py                  # PagedKVPool (block allocator), PagedKVCache (single-request), BatchedDecodeCache (multi-tenant, shared decode batch)
+│   └── utils.py                        # device-agnostic memory tracking
 │
 ├── results/
 │   ├── naive.json
@@ -70,17 +55,24 @@ NanoServe/
 │   ├── paged_kv.json
 │   ├── paged_kv_fragmentation.json
 │   ├── continuous_batching.json
-│   ├── plot_comparison.py          # grouped-bar metric comparison across any two runs
-│   ├── plot_fragmentation.py
-│   ├── plot_capacity.py            # concurrent-capacity comparison (paged vs naive, same memory budget)
-│   ├── plot_occupancy.py           # batch occupancy over time, from continuous batching's step trace
-│   └── images/                     # generated plots
+│   ├── scheduler_on_wave1.json
+│   ├── scheduler_on_full.json
+│   ├── scheduler_off_full.json
+│   ├── plot_comparison.py              # grouped-bar metric comparison across any two runs
+│   ├── plot_fragmentation.py           # internal fragmentation, waste comparison
+│   ├── plot_capacity.py                # concurrent-capacity comparison (paged vs naive, same memory budget)
+│   ├── plot_occupancy.py               # batch occupancy over time, from continuous batching's step trace
+│   ├── plot_scheduler_comparison.py    # scheduler on vs off, four core metrics
+│   ├── plot_scheduler_timeline.py      # two-wave burst outcome timeline, data-derived grouping (no hardcoded IDs)
+│   └── images/                         # generated plots
 │
-├── benchmark.py                    # benchmarking and compare phases
-├── continuous_batch_bench.py       # sequential vs. continuous-batched run, same requests, same pool
-├── test_fragmentation.py           # internal + external fragmentation tests, paged vs naive kv_cache
-└── notes/                          # writeups explaining phases/results
+├── benchmark.py                        # benchmarking and compare phases
+├── continuous_batch_benchmark.py       # sequential vs. continuous-batched run, same requests, same pool
+├── scheduler_benchmark.py              # two-wave burst test: scheduler on vs off, backpressure + timeout + recovery
+├── test_fragmentation.py               # internal + external fragmentation tests, paged vs naive kv_cache
+└── notes/                              # writeups explaining phases/results
 ```
+ 
 
 ## Getting Started
 
@@ -121,7 +113,15 @@ uv run python test_fragmentation.py
 
 ```bash
 # Continuous batching (sequential vs. batched, same requests, same pool)
-uv run python continuous_batch_bench.py
+uv run python continuous_batch_benchmark.py
+```
+
+```bash
+# Scheduler (two-wave burst: admits, backpressure, timeouts, clean recovery)
+uv run scheduler_benchmark.py --wave full --use-scheduler
+ 
+# Scheduler-off control, same requests (continuous batching's unbounded fallback)
+uv run scheduler_benchmark.py --wave full
 ```
 
 Metrics and plots are written to `results/`.

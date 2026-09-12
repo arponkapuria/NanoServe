@@ -6,6 +6,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from . import settings, utils
 from .config import AggregateMetrics, EngineConfig
 from .paged_cache import PagedKVCache, PagedKVPool, BatchedDecodeCache
+from .scheduler import Scheduler
 
 
 class NanoServeEngine:
@@ -168,18 +169,82 @@ class NanoServeEngine:
         """Orca/vLLM-style iteration-level continuous batching: each request prefills
         sequentially when admitted (existing single-request PagedKVCache path), then
         joins a shared BatchedDecodeCache decode batch (capped at settings.MAX_BATCH_SIZE)
-        until EOS or max_new_tokens. Batch membership is re-evaluated every decode step."""
+        until EOS or max_new_tokens. Batch membership is re-evaluated every decode step.
+
+        When self.config.use_scheduler is True, arrivals pass through a Scheduler first:
+        an explicit FCFS wait queue with fixed-depth backpressure (settings.MAX_QUEUE_DEPTH,
+        rejected reason 'queue_full') and a fixed per-request wait timeout
+        (settings.MAX_QUEUE_WAIT_MS, rejected reason 'timeout') before being admitted.
+        When False, falls back to step 4's original behavior exactly: admit immediately
+        whenever a slot is free, unbounded queue, no rejections."""
 
         decode_cache = BatchedDecodeCache(self.pool)
         pending = sorted(requests, key=lambda r: r["arrival_delay"])
         active: dict[int, dict] = {}
         finished: dict[int, dict] = {}
+        rejected: list[dict] = []
+        waiting_no_scheduler: list[dict] = []  # only used when scheduler disabled
         next_id = 0
         occupancy_samples = []
+
+        scheduler = (
+            Scheduler(settings.MAX_QUEUE_DEPTH, settings.MAX_QUEUE_WAIT_MS / 1000)
+            if self.config.use_scheduler else None
+        )
 
         utils.reset_memory_stats()
         utils.sync()
         wall_start = time.perf_counter()
+
+        def intake(now):
+            """Move any request whose arrival_delay has elapsed out of `pending`. With
+            a scheduler this is the moment backpressure is checked; without one it goes
+            straight onto the old unbounded waiting list (step 4 behavior)."""
+            nonlocal pending
+            still_waiting = []
+            for req in pending:
+                if req["arrival_delay"] > now:
+                    still_waiting.append(req)
+                    continue
+                if scheduler is not None:
+                    decision = scheduler.submit(req, now)
+                    if decision == "rejected_queue_full":
+                        rejected.append({"prompt": req["prompt"], "reason": "queue_full",
+                                          "arrival_delay": req["arrival_delay"]})
+                else:
+                    waiting_no_scheduler.append(req)
+            pending = still_waiting
+
+        def admit_one(req, queue_time_s):
+            nonlocal next_id
+            rid = next_id
+            next_id += 1
+
+            input_ids = self._build_input_ids(req["prompt"])
+            cache = PagedKVCache(self.pool)
+            seq_len = input_ids.shape[1]
+            cache.begin_step(seq_len)
+            cache_position = torch.arange(0, seq_len, device=self.device)
+            t0 = time.perf_counter()
+            outputs = self.model(input_ids, past_key_values=cache, use_cache=True, cache_position=cache_position)
+            cache.commit_step()
+            utils.sync()
+            ttft = time.perf_counter() - t0
+
+            next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
+            decode_cache.add_request(rid, cache.block_table, cache.num_tokens)
+            active[rid] = {
+                "prompt": req["prompt"], "prompt_len": seq_len, "max_new_tokens": req["max_new_tokens"],
+                "next_token": next_token, "num_generated": 1,
+                "ttft": ttft, "token_times": [], "last_time": time.perf_counter(),
+                "generated_ids": [next_token.clone()],
+                "done": next_token.item() == self.tokenizer.eos_token_id,
+                "queue_time_s": queue_time_s,
+            }
+            if active[rid]["done"]:
+                active[rid]["finish_time"] = time.perf_counter() - wall_start
+                finished[rid] = active.pop(rid)
+                decode_cache.remove_request(rid)
 
         def try_admit():
             nonlocal next_id
@@ -216,14 +281,33 @@ class NanoServeEngine:
                     finished[rid] = active.pop(rid)
                     decode_cache.remove_request(rid)
 
+        def try_admit():
+            now = time.perf_counter() - wall_start
+            intake(now)
+            if scheduler is not None:
+                for entry in scheduler.expire(now):
+                    rejected.append({"prompt": entry["request"]["prompt"], "reason": "timeout",
+                                      "arrival_delay": entry["request"]["arrival_delay"]})
+                free_slots = settings.MAX_BATCH_SIZE - len(active)
+                for entry in scheduler.pull(now, free_slots):
+                    admit_one(entry["request"], entry["queue_time_s"])
+            else:
+                while waiting_no_scheduler and len(active) < settings.MAX_BATCH_SIZE:
+                    admit_one(waiting_no_scheduler.pop(0), queue_time_s=0.0)
+
+        def queued_depth():
+            return scheduler.depth if scheduler is not None else len(waiting_no_scheduler)
+
         try_admit()
         step_index = 0  # REMOVE: for debugging, can be removed later
         step_trace = []
-        while active or pending:
+        while active or pending or queued_depth():
             if not active:
-                wait = pending[0]["arrival_delay"] - (time.perf_counter() - wall_start)
-                if wait > 0:
-                    time.sleep(wait)
+                now = time.perf_counter() - wall_start
+                if queued_depth() == 0 and pending:
+                    wait = pending[0]["arrival_delay"] - now
+                    if wait > 0:
+                        time.sleep(wait)
                 try_admit()
                 continue
 
@@ -288,8 +372,14 @@ class NanoServeEngine:
             per_request.append({
                 "request_id": rid, "prompt": r["prompt"], "generated_text": text,
                 "num_generated_tokens": r["num_generated"], "prompt_len": r["prompt_len"],
-                "finish_time_s": r["finish_time"],
+                "finish_time_s": r["finish_time"], "ttft_s": r["ttft"],
+                "admitted_at_s": r["finish_time"] - sum(r["token_times"]) - r["ttft"],
+                "queue_time_s": r.get("queue_time_s", 0.0),
             })
+
+        queue_times = [r["queue_time_s"] for r in finished.values() if r.get("queue_time_s") is not None]
+        rejected_queue_full = sum(1 for r in rejected if r["reason"] == "queue_full")
+        rejected_timeout = sum(1 for r in rejected if r["reason"] == "timeout")
 
         metrics = AggregateMetrics(
             ttft_mean=sum(all_ttft) / len(all_ttft),
@@ -299,6 +389,9 @@ class NanoServeEngine:
             ttft_p99=utils.percentile(all_ttft, 99),
             tpot_p99=utils.percentile(all_step_times, 99),
             batch_occupancy_mean=sum(occupancy_samples) / len(occupancy_samples),
+            mean_queue_time_ms=(sum(queue_times) / len(queue_times) * 1000) if queue_times else 0.0,
+            rejected_queue_full=rejected_queue_full,
+            rejected_timeout=rejected_timeout,
         )
         return {
             "metrics": metrics,
@@ -307,6 +400,7 @@ class NanoServeEngine:
             "total_wall_s": total_wall,
             "per_request": per_request,
             "step_trace": step_trace,
+            "rejected": rejected,
         }
                 
     def _build_result(self, generated, input_ids, first_token_time, token_times, total_time) -> dict:

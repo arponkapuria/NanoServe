@@ -27,3 +27,5 @@ class AggregateMetrics:
     ttft_p99: float | None = None
     tpot_p99: float | None = None
     batch_occupancy_mean: float | None = None
+    rejected_queue_full: int | None = None
+    rejected_timeout: int | None = None

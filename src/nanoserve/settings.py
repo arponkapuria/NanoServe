@@ -60,3 +60,34 @@ CONTINUOUS_BATCH_REQUESTS = [
     {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 22.5},
     {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 22.6},
 ]
+
+
+# Scheduler (backpressure + timeout)
+MAX_QUEUE_DEPTH = 10        # requests waiting for a decode-batch slot before new arrivals are rejected
+MAX_QUEUE_WAIT_MS = 2500   # max time a request may sit in the scheduler queue before being dropped as a timeout
+
+# Step 5 burst test: Wave 1 saturates the batch + queue and triggers backpressure/timeout.
+# Wave 2 (after Wave 1 fully drains) checks the scheduler returns to clean steady-state,
+# with no leftover state from Wave 1 affecting it.
+# SCHEDULER_BURST_WAVE2_DELAY is a placeholder — update it after running --wave wave1 alone
+# and reading its real total_wall_s, same "measure real finish time, then hardcode" pattern
+# step 4 used for its backfill requests.
+
+SCHEDULER_BURST_WAVE1 = [
+    # Deliberately short (3 tokens, ~1s to finish): frees a batch slot fast, while the
+    # queue still has live (non-timed-out) entries — without this, all 6 initially-admitted
+    # requests share max_new_tokens=50 and finish in lockstep, so no slot EVER frees before
+    # the queue's 1500ms timeout elapses, making a genuine wait-then-admit impossible to observe.
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": 1, "arrival_delay": 0.0},
+] + [
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 0.0}
+    for _ in range(15)
+]
+
+SCHEDULER_BURST_WAVE2_DELAY = 28.0  # measured Wave 1 drain 21.02s + ~2s buffer
+SCHEDULER_BURST_WAVE2 = [
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"],
+     "arrival_delay": SCHEDULER_BURST_WAVE2_DELAY + i * 0.1}
+    for i in range(6)
+]
+SCHEDULER_BURST_REQUESTS = SCHEDULER_BURST_WAVE1 + SCHEDULER_BURST_WAVE2

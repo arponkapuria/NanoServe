@@ -1,0 +1,226 @@
+{
+  "step": "scheduler_on_full",
+  "timestamp": "2026-09-11T14:42:22",
+  "device": "mps",
+  "model": "Qwen/Qwen3-1.7B",
+  "config": {
+    "use_kv_cache": true,
+    "use_paged_kv": true,
+    "use_continuous_batching": true,
+    "use_scheduler": true,
+    "use_radix_cache": false,
+    "use_chunked_prefill": false,
+    "use_quantization": false,
+    "use_speculative_decoding": false
+  },
+  "num_requests_offered": 22,
+  "metrics": {
+    "ttft_mean": 0.23157551278396007,
+    "tpot_mean": 0.4366962540258712,
+    "throughput_tps": 11.681202510122604,
+    "peak_memory_mb": 3859.226806640625,
+    "saturation_rps": null,
+    "mean_queue_time_ms": 116.51960254396097,
+    "cache_hit_rate": null,
+    "quality_delta": null,
+    "draft_acceptance_rate": null,
+    "ttft_p99": 0.9410567900026209,
+    "tpot_p99": 0.8404743500053885,
+    "batch_occupancy_mean": 5.89,
+    "rejected_queue_full": 6,
+    "rejected_timeout": 3
+  },
+  "rejected": [
+    {
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "reason": "queue_full",
+      "arrival_delay": 0.0
+    },
+    {
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "reason": "queue_full",
+      "arrival_delay": 0.0
+    },
+    {
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "reason": "queue_full",
+      "arrival_delay": 0.0
+    },
+    {
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "reason": "queue_full",
+      "arrival_delay": 0.0
+    },
+    {
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "reason": "queue_full",
+      "arrival_delay": 0.0
+    },
+    {
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "reason": "queue_full",
+      "arrival_delay": 0.0
+    },
+    {
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "reason": "timeout",
+      "arrival_delay": 0.0
+    },
+    {
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "reason": "timeout",
+      "arrival_delay": 0.0
+    },
+    {
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "reason": "timeout",
+      "arrival_delay": 0.0
+    }
+  ],
+  "per_request": [
+    {
+      "request_id": 0,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash",
+      "num_generated_tokens": 2,
+      "prompt_len": 29,
+      "finish_time_s": 1.5146790420403704,
+      "ttft_s": 0.16176229098346084,
+      "admitted_at_s": 0.008105793036520481,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 1,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 21.589429083047435,
+      "ttft_s": 0.1666809159796685,
+      "admitted_at_s": 0.17236404202412814,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 2,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 21.58949491707608,
+      "ttft_s": 0.16629145806655288,
+      "admitted_at_s": 0.3426203759154305,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 3,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 21.589512167032808,
+      "ttft_s": 0.16615375003311783,
+      "admitted_at_s": 0.5142453749431297,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 4,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 21.589517792104743,
+      "ttft_s": 0.1714274169644341,
+      "admitted_at_s": 0.6851449171081185,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 5,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 21.589521625079215,
+      "ttft_s": 0.16303995810449123,
+      "admitted_at_s": 0.86021533398889,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 6,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 21.701977125019766,
+      "ttft_s": 0.16731820802669972,
+      "admitted_at_s": 1.5226266670506448,
+      "queue_time_s": 1.5147548330714926
+    },
+    {
+      "request_id": 7,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 51.08759183308575,
+      "ttft_s": 1.0460062499623746,
+      "admitted_at_s": 28.03881075012032,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 8,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 51.53568662505131,
+      "ttft_s": 0.1562966670608148,
+      "admitted_at_s": 29.182941291946918,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 9,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 51.53570700006094,
+      "ttft_s": 0.1619843749795109,
+      "admitted_at_s": 29.34545029210858,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 10,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 51.5357117500389,
+      "ttft_s": 0.1604150419589132,
+      "admitted_at_s": 29.51197204203345,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 11,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 51.53571708302479,
+      "ttft_s": 0.16099858400411904,
+      "admitted_at_s": 29.67701595800463,
+      "queue_time_s": 0.0
+    },
+    {
+      "request_id": 12,
+      "prompt": "Explain what a hash table is and why it's useful, in one paragraph.",
+      "generated_text": "A hash table is a data structure that stores key-value pairs in an array, where the key is used to index the value. It uses a hash function to compute an index, allowing for average constant-time complexity for insertions, deletions, and",
+      "num_generated_tokens": 50,
+      "prompt_len": 29,
+      "finish_time_s": 51.535721208085306,
+      "ttft_s": 0.16210675006732345,
+      "admitted_at_s": 29.844179125037044,
+      "queue_time_s": 0.0
+    }
+  ],
+  "total_wall_s": 51.53579004202038
+}
