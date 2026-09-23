@@ -1,0 +1,76 @@
+{
+  "step": "radix_capacity_savings",
+  "timestamp": "2026-09-19T19:09:24",
+  "source_result_file": "results/radix_ramp_radix_on_schedule_on.json",
+  "device": "mps",
+  "model": "Qwen/Qwen3-1.7B",
+  "config": {
+    "use_kv_cache": true,
+    "use_paged_kv": true,
+    "use_continuous_batching": true,
+    "use_scheduler": true,
+    "use_radix_cache": true,
+    "use_chunked_prefill": false,
+    "use_quantization": false,
+    "use_speculative_decoding": false
+  },
+  "block_size": 16,
+  "pool_blocks": 256,
+  "per_request": [
+    {
+      "request_id": 0,
+      "naive_blocks": 7,
+      "cached_blocks": 5,
+      "private_blocks": 2
+    },
+    {
+      "request_id": 1,
+      "naive_blocks": 7,
+      "cached_blocks": 5,
+      "private_blocks": 2
+    },
+    {
+      "request_id": 3,
+      "naive_blocks": 7,
+      "cached_blocks": 5,
+      "private_blocks": 2
+    },
+    {
+      "request_id": 2,
+      "naive_blocks": 7,
+      "cached_blocks": 5,
+      "private_blocks": 2
+    },
+    {
+      "request_id": 4,
+      "naive_blocks": 7,
+      "cached_blocks": 5,
+      "private_blocks": 2
+    },
+    {
+      "request_id": 5,
+      "naive_blocks": 7,
+      "cached_blocks": 5,
+      "private_blocks": 2
+    },
+    {
+      "request_id": 7,
+      "naive_blocks": 7,
+      "cached_blocks": 5,
+      "private_blocks": 2
+    },
+    {
+      "request_id": 6,
+      "naive_blocks": 7,
+      "cached_blocks": 5,
+      "private_blocks": 2
+    }
+  ],
+  "shared_prefix_blocks": 5,
+  "total_naive_blocks": 56,
+  "total_blocks_with_sharing": 21,
+  "reduction_pct": 0.625,
+  "naive_concurrent_capacity": 36.0,
+  "shared_concurrent_capacity": 125.0,
+  "capacity_gain_x": 3.4722222222222223
+}

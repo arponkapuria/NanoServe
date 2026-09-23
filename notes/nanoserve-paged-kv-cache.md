@@ -1,8 +1,4 @@
 # Paged KV Cache on Apple Silicon: Fixing Memory Fragmentation Without CUDA
-
-> Part 2 of the NanoServe build series. Part 1 covered naive decode and KV cache; this part assumes you've read that, or at least know what a KV cache is and why it speeds up decoding.
->
-> **Part 1:** [From Naive Decode to KV Cache: Why LLM Serving Gets Faster With One Idea](/blogs/posts/nanoserve-paged-kv-cache)
  
 Part 1 fixed a *compute* problem: stop recomputing Keys and Values you already know. This part fixes a different problem that KV cache never touches — *how that cache is stored in memory*. Because this project runs on an Apple Silicon GPU instead of an NVIDIA one, the version we can actually build looks different from the industry-standard one. This article covers what the standard version does, why we can't copy it directly, what we built instead, and how we tested it.
 
@@ -17,8 +13,6 @@ Two separate problems show up here:
 **Internal fragmentation** — memory reserved for a sequence but never used. Since you don't know how long a sequence will run, a system typically reserves space for some worst case upfront, say 1024 tokens. If the sequence only generates 80 tokens, the other 944 reserved slots sit unused for its whole lifetime.
  
 **External fragmentation** — memory that's genuinely free, but scattered into pieces too small to use. Picture three sequences sitting back-to-back in memory. The middle one finishes and frees its space. Now there's a free gap in the middle, but if a new, larger sequence needs more contiguous space than that gap holds, it can't use it — even though enough total free memory exists elsewhere.
-
-![The Fragmentation Problem|600](/images/blogs/nanoserve/fragmentation-problem.png)
  
 This isn't hypothetical. The team behind **vllm** measured it on real serving systems and found they were using only 20–38% of their reserved KV cache memory for actual data — meaning 60–80% of it sat wasted. On a resource-constrained machine, that can not be ignored.
 
@@ -34,8 +28,6 @@ PagedAttention applies the same idea to tokens instead of memory pages:
 - **Physical block pool**: one big pre-allocated set of such blocks, shared across *every* sequence the whole engine is serving — not one pool per sequence.
 - **Block table**: a small, per-sequence lookup list mapping "this sequence's logical block 0, 1, 2..." to "physical block #47, #12, #203..." wherever those actually happen to sit in the pool.
 - **Free list**: a list of which physical blocks are currently unused. Allocating is just popping an index off this list — instant, no searching for a contiguous run of the right size.
-
-![Logical Blocks vs Physical Blocks|600](/images/blogs/nanoserve/logical-blocks-vs-physical-blocks.png)
  
 Because every block is the same size, allocation stops being "find a contiguous region of the right size" — which fragments badly, as shown above — and becomes "grab any block, from anywhere." External fragmentation can't happen. You still lose a little memory internally — up to `block_size − 1` tokens per sequence, whatever doesn't fill the last block — but that waste is small and bounded, not the unpredictable waste of upfront reservation.
 
@@ -46,8 +38,6 @@ It's worth being precise about what vLLM's actual production implementation does
 **(1) The block bookkeeping** described above — pool, block table, free list. It's plain data-structure logic, nothing GPU-specific. You could write it in any language.
  
 **(2) A custom hand-written CUDA kernel that computes attention directly against the scattered blocks** — Say a sequence's block table points to blocks 47, 12, and 203. The simple approach would be to first copy those three blocks into one contiguous buffer, then run ordinary attention math on it — two steps. vLLM's kernel instead reads straight from blocks 47, 12, and 203 wherever they live, computes the attention scores, runs softmax, and blends the values, all inside one fused GPU kernel launch. No intermediate copy is ever created.
- 
-![Fused CUDA Kernel|600](/images/blogs/nanoserve/fused-cuda-kernel-paged-kv.png)
  
 That fusion is the actual source of vLLM's speed advantage over a plain "gather, then compute" approach — skipping the intermediate copy avoids an entire extra pass of memory movement.
 
@@ -66,8 +56,6 @@ A community project called `vllm-metal` ports vLLM to Apple Silicon with real, h
 Given that, the choice was between pulling in `vllm-metal`'s MLX-based kernels for one component of a learning project, or building the block management ourselves in plain PyTorch and substituting something simpler for the fused kernel.
  
 We chose the Naive Two-Step approach, and it holds up for a specific reason: the memory-management benefit — no external fragmentation, bounded internal fragmentation — comes entirely from the block bookkeeping, not the kernel. The fused kernel only affects *how fast* attention runs once the blocks already exist; it doesn't change whether fragmentation gets solved. So building the bookkeeping properly and swapping in a slower substitute for the kernel still delivers what this technique is actually for.
-
-![Naive Two Step Approach|700](/images/blogs/nanoserve/two-step-paged-kv.png)
  
 **The substitute:** store KV data in real, scattered, fixed-size blocks, exactly as described above, but at attention time, explicitly **gather** the sequence's blocks into a temporary contiguous tensor using PyTorch's `index_select`, then run ordinary attention math on that tensor. This is the two-step version from the diagram earlier — deliberately slower than a fused kernel, with that cost measured honestly rather than hidden.
  
@@ -156,8 +144,6 @@ class PagedKVCache(Cache):
 
 To size the pool, we need to know how much memory one token costs. Qwen3-1.7B has 28 layers, 8 Key/Value heads per layer, and a 128-number head dimension, stored in 16-bit floats.
 
-![KV Cache Memory Calculation|700](/images/blogs/nanoserve/kv-cache-memory-calculation.png)
-
 > With this configuration, the KV cache pool reserves **~458 MB**, holding up to **4096 tokens** across **256 blocks** of **16 tokens** each.
 
 **Why 16 tokens per block?** This is the value vLLM itself defaults to, and it's a genuine trade-off, not an arbitrary choice: Smaller blocks (8) waste less per sequence in the worst case, but mean more blocks to track and more, smaller gather operations. Larger blocks (32) mean fewer, bigger gathers, but coarser reuse — a 3-token sequence still occupies a full 32-slot block. 16 sits in the middle, and keeps our numbers comparable to published results.
@@ -169,8 +155,6 @@ To size the pool, we need to know how much memory one token costs. Qwen3-1.7B ha
 HuggingFace's model calls `update()` once per layer — 28 times per forward pass. But block allocation has to happen once per forward pass, not 28 times, or it would double-allocate.
  
 So the engine calls `begin_step(num_new_tokens)` once, before the model runs, handling allocation and index computation up front. The model then runs its normal forward pass, calling `update()` 28 times internally, each call reusing the same precomputed indices and touching only its own layer's slice of the pool. After the forward pass, the engine calls `commit_step()` once, advancing the token count so the next step's `begin_step` builds on the right number.
- 
-![Inference: The Per-Step Flow|700](/images/blogs/nanoserve/per-step-flow-paged-inference.png)
  
 The same code handles both **prefill** — the first call, `begin_step(prompt_length)`, processing the whole prompt at once — and **decode** — every call after, `begin_step(1)`, one token at a time. Only the number changes.
  
@@ -186,16 +170,11 @@ That goal doesn't include making a single sequence faster. It can't: paging does
  
 Same method as Part 1: a discarded warmup run, three timed runs averaged, comparing paged KV cache against Part 1's plain KV cache on the same prompt.
  
-![KV Cache vs Paged KV Cache|700](/results/images/kv-cache-vs-paged-kv-cache-plot.png)
-
- 
 TTFT and TPOT land within noise of plain KV cache — expected, since the underlying attention math is identical and the added gather step turned out to be cheap once properly vectorized. Peak memory is about 446MB higher, and that number isn't mysterious: it's almost exactly the pool's fixed upfront allocation from the sizing math above (~458MB theoretical). That cost is paid once at startup regardless of how much of it any single request actually uses — a cost that only turns into a good trade-off once multiple sequences share the same pre-paid pool, which a single-request test can't show.
  
 ### Internal Fragmentation
  
 To measure this, we ran real generations at three different lengths through the paged engine and, before freeing each one, computed how many token-slots were reserved but unused. For a naive-side comparison, we ran the same lengths through a real allocation reserving a fixed 1024 tokens upfront regardless of actual length, and measured that the same way.
- 
-![Internal Fragmentation - Waste Comparison|700](/results/images/internal-fragmentation-waste-plot.png)
  
 Paged waste stays low and bounded — 1.2% to 4.7% — regardless of sequence length, consistent with the `block_size − 1` bound. Naive waste drops from 92.3% to 45.2% as sequences get longer, but that's arithmetic, not naive "improving": its waste is `1 − actual/1024`, so it shrinks mechanically as actual length approaches the fixed reservation. Even at naive's best case here, it still wastes roughly 17x more than paged's worst case. A real system serving mostly short, unpredictable-length requests would sit much closer to the high-waste end of this range, not the favorable long-sequence case.
  
@@ -217,7 +196,3 @@ The paged pool succeeds because it never needs contiguity in the first place; th
 Everything measured here is groundwork, and its payoff is intentionally deferred. Block-addressable storage exists to make continuous batching possible: serving many sequences of different, changing lengths, arriving and finishing unpredictably, sharing one fixed memory budget without heavy padding waste. A single contiguous buffer per sequence makes that either impossible or badly wasteful — pad everyone to the batch's longest sequence, or manage a mess of independently-growing allocations that fragments exactly as shown earlier. Block-based storage avoids both problems by construction.
  
 The real performance story — throughput under concurrent load, actual utilization of the memory set aside here — gets measured next, not in this step. This step's job was proving the foundation is correct and provably better on the specific properties it targets, ahead of the step that will actually make use of it.
- 
----
- 
-> Code: [https://github.com/arponkapuria/NanoServe](https://github.com/arponkapuria/NanoServe)

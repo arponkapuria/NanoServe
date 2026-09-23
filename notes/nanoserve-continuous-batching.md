@@ -1,16 +1,10 @@
 # Continuous Batching: Getting More LLM Throughput From the Same GPU
 
-> Part 3 of the NanoServe build series. Part 1 covered naive decode and KV cache. Part 2 covered paged KV cache — block-based memory that avoids waste, built specifically so this part could use it. This part assumes you've read both, or at least know what a KV cache and a block pool are.
->
-> **Part 2:** [Paged KV Cache on Apple Silicon: Fixing Memory Fragmentation Without CUDA](/blogs/posts/nanoserve-paged-kv-cache)
-
 Part 2 ended with a promise it deliberately didn't cash in: paged KV cache doesn't make one request faster, it just avoids wasting memory — and that waste only turns into a real payoff once *multiple* requests actually share the pool at the same time. This part is where that payoff gets collected.
 
 ## The Idle GPU Problem
 
 Every engine built so far in this series - serves exactly one request, start to finish, before touching the next one. If request 2 takes 10 seconds to fully generate its answer, request 1 sits and waits, even though the GPU has spare capacity the whole time.
-
-![Idle GPU Problem|600](/images/blogs/nanoserve/idle-gpu-problem.png)
 
 That spare capacity is the actual problem. Decoding one token for one request is a small operation — the GPU reads the whole model's weights from memory just to produce a single next word. Reading those weights costs roughly the same whether the result is used to produce 1 token or 4. So if 4 independent requests are willing to wait for their next token at the same moment, running them *together* gets you 4 tokens for close to the price of 1 — the accelerator was mostly idle at batch size 1 anyway.
 
@@ -20,13 +14,9 @@ Getting several requests to share the accelerator's attention, instead of taking
 
 The obvious first idea — collect a few requests, run them together until they're *all* done — is called **static batching**, and it breaks the moment requests differ in length, which they always do. If one request needs 20 tokens and another needs 200, the whole batch is stuck waiting on the slow one; a finished request's slot sits empty instead of picking up new work.
 
-![Head of Line Blocking|600](/images/blogs/nanoserve/head-of-line-blocking.png)
-
 A step up from that is **dynamic batching**: instead of a fixed schedule, the system waits for enough requests to arrive (or a short timeout to pass), forms a batch from whatever showed up, and only then runs it. This is more flexible about *when* a batch starts, but once it starts, it behaves just like static batching — no mid-run swapping, so a slow request in the group still holds up everyone else's slot.
 
 **Continuous batching**, introduced by a 2022 paper called **Orca**, fixes this by scheduling at the *iteration* level instead of the *request* level: after every single token is generated, re-decide who's in the batch. Drop anyone who just finished. Let in anyone new who's waiting. Run the next step with the new lineup. The batch's membership can change every token — that's the "continuous" part.
-
-![Continuous Batching|700](/images/blogs/nanoserve/continuous-batching.png)
 
 This is exactly why paged KV cache from Part 2 was a hard prerequisite, not a nice-to-have. Requests that come and go at different times, with different lengths, sharing one memory budget — a single contiguous buffer per request can't do that cheaply. Block-based storage can: freeing a request just returns its blocks to the pool, instantly reusable by whoever's admitted next.
 
@@ -175,8 +165,6 @@ while active or pending:
 
 That's the entire mechanism, stripped to its logic — no special case for a batch growing or shrinking, because every iteration already recomputes membership from scratch. Laid out as a diagram, one full iteration looks like this:
 
-![One Iteration of the Scheduler Loop|700](/images/blogs/nanoserve/continuous-batching-iteration-loop.png)
-
 This loop is deliberately a fixed skeleton. Later steps in this series — a real priority scheduler, then chunked prefill — don't replace it; they plug smarter logic into specific points inside it (admission, and the prefill call) without touching the loop itself.
 
 ## Sizing the Batch
@@ -209,8 +197,6 @@ Two things fall out of this. First, the improvement is real and it's exactly the
 
 Same method as every previous part: a discarded warmup run, then a timed run, comparing the same requests run one at a time against running them through the new scheduler.
 
-![Sequential vs Continuous Batching — TTFT, TPOT, Throughput, Peak Memory|700](/images/blogs/nanoserve/sequential-vs-continuous-batching-plot.png)
-
 The chart shows the shape of it; the table underneath has the exact numbers behind each bar.
 
 | Metric | Sequential | Continuous Batching |
@@ -229,15 +215,11 @@ The chart shows the shape of it; the table underneath has the exact numbers behi
 
 The chart below is the run's actual timeline, and it makes that average concrete rather than abstract.
 
-![Batch Occupancy Over the Run|700](/images/blogs/nanoserve/batch-occupancy-plot.png)
-
 Active requests climb as the first batch fills in, dip when a couple of short requests finish close together, climb back up the moment the timed backfill requests land, and taper off only at the very end once nothing is left to refill the last slots. The dashed line marks the 5.19 average; the dotted line marks the 6-request cap.
 
 ## Paged KV Cache's Payoff
 
 Part 2 measured paged KV cache's memory efficiency in isolation and explicitly deferred the real payoff to this step. Here's that payoff, made concrete: the same 4096-token pool that holds exactly 4 requests under a naive fixed-reservation scheme (1024 tokens set aside per request, regardless of how short it actually is) held **36 requests** under paged allocation in this run, because paging only spends blocks on tokens a request actually generates.
-
-![Concurrent Capacity — Same Memory, Same Pool|700](/images/blogs/nanoserve/concurrent-capacity-plot.png)
 
 That 4-to-36 gap is the concrete, request-counted version of the fragmentation percentages Part 2 measured abstractly — the reason block-based storage was worth building before batching existed to use it.
 
@@ -246,7 +228,3 @@ That 4-to-36 gap is the concrete, request-counted version of the fragmentation p
 Continuous batching's admission policy so far is the simplest one possible: if there's room, let the next waiting request in, first-come-first-served, no other consideration. That's fine for a controlled test with a handful of requests, but it falls apart the moment requests arrive faster than the system can serve them, or some requests genuinely matter more than others.
 
 That's a **scheduler** — a real admission policy sitting on top of this exact loop, deciding *who* gets in and *when*, including what happens when the queue outgrows what the system can currently handle. The loop, the batching, the shared cache all stay exactly as built here. Only the admission decision gets replaced.
-
----
-
-> Code: [https://github.com/arponkapuria/NanoServe](https://github.com/arponkapuria/NanoServe)

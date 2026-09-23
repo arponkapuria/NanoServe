@@ -61,6 +61,30 @@ CONTINUOUS_BATCH_REQUESTS = [
     {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": GEN_LEN_DEFAULTS["short"], "arrival_delay": 22.6},
 ]
 
+RADIX_RAMP_SUFFIXES = [
+    "What is the capital of France?",
+    "What is the capital of Japan?",
+    "What is the capital of Brazil?",
+    "What is the capital of Canada?",
+    "What is the capital of Egypt?",
+    "What is the capital of Kenya?",
+    "What is the capital of Peru?",
+    "What is the capital of Norway?",
+    "What is the capital of Vietnam?",
+]
+RADIX_RAMP_PREFIX = (
+    "You are a customer support assistant for a cloud infrastructure company. "
+    "Always be concise, technically precise, and avoid unnecessary pleasantries. "
+    "The user is a senior software engineer who is already familiar with Linux, "
+    "networking, and distributed systems, so skip basic explanations. "
+    "Background: the user's account is on the Enterprise tier with a dedicated "
+    "support SLA of 15 minutes response time. "
+)
+RADIX_RAMP_REQUESTS = [
+    {"prompt": RADIX_RAMP_PREFIX + s,
+     "max_new_tokens": GEN_LEN_DEFAULTS["prefix_shared"], "arrival_delay": i * 0.3}
+    for i, s in enumerate(RADIX_RAMP_SUFFIXES)
+]
 
 # Scheduler (backpressure + timeout)
 MAX_QUEUE_DEPTH = 10        # requests waiting for a decode-batch slot before new arrivals are rejected

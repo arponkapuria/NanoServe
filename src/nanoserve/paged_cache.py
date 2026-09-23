@@ -34,6 +34,8 @@ class PagedKVCache(Cache):
         self.num_tokens = 0          # tokens committed from PRIOR steps
         self._step_new_tokens = 0    # new tokens being written THIS step
         self.layers: list = []  
+        self._cached_blocks = 0       # leading blocks owned by a RadixCache — free() must not release them
+        self._radix_path: list = []   # RadixNode chain this request touched, for ref-count release
 
     def begin_step(self, num_new_tokens: int) -> None:
         """Call once per forward pass, before invoking the model. Allocates new
@@ -91,10 +93,12 @@ class PagedKVCache(Cache):
     def get_max_cache_shape(self) -> int | None:
         return None  # unbounded — the pool enforces the real limit, not the mask logic
 
-    def free(self) -> None:
-        """Release all blocks back to the pool. Call this when the request is done."""
-
-        self.pool.release(self.block_table)
+    def free(self, radix_cache=None) -> None:
+        """Release blocks back to the pool — except the first `_cached_blocks` entries,
+        which belong to a RadixCache and persist for future requests to hit."""
+        self.pool.release(self.block_table[self._cached_blocks:])
+        if radix_cache is not None:
+            radix_cache.release(self._radix_path)
         self.block_table = []
         self.num_tokens = 0
 
@@ -110,16 +114,23 @@ class BatchedDecodeCache(Cache):
         self.requests: dict[int, dict] = {}
         self.active_ids: list[int] = []
 
-    def add_request(self, req_id: int, block_table: list[int], num_tokens: int) -> None:
+    def add_request(self, req_id: int, block_table: list[int], num_tokens: int, 
+                    cached_blocks: int = 0, radix_path: list | None = None) -> None:
         device = self.pool.k_pool.device
         bt_tensor = torch.tensor(block_table, dtype=torch.long, device=device)
         self.requests[req_id] = {
             "block_table": list(block_table), "block_table_tensor": bt_tensor, "num_tokens": num_tokens,
+            "cached_blocks": cached_blocks, "radix_path": radix_path or [],
         }
 
-    def remove_request(self, req_id: int) -> None:
+    def remove_request(self, req_id: int, radix_cache=None) -> None:
+        """Release blocks back to the pool — except the request's leading
+        `cached_blocks` entries, which belong to a RadixCache and persist for future
+        requests. Mirrors PagedKVCache.free()'s split."""
         state = self.requests.pop(req_id)
-        self.pool.release(state["block_table"])
+        self.pool.release(state["block_table"][state["cached_blocks"]:])
+        if radix_cache is not None:
+            radix_cache.release(state["radix_path"])
 
     def begin_step(self, active_ids: list[int]) -> torch.Tensor:
         """Allocates this step's new-token block for each active request, and builds

@@ -7,6 +7,7 @@ from . import settings, utils
 from .config import AggregateMetrics, EngineConfig
 from .paged_cache import PagedKVCache, PagedKVPool, BatchedDecodeCache
 from .scheduler import Scheduler
+from .radix_cache import RadixCache
 
 
 class NanoServeEngine:
@@ -24,6 +25,13 @@ class NanoServeEngine:
         ).to(self.device)
 
         self.pool = None
+        self.radix_cache = None
+
+        if self.config.use_radix_cache:
+            if not self.config.use_paged_kv:
+                raise ValueError("use_radix_cache requires use_paged_kv")
+            self.radix_cache = RadixCache(settings.PAGED_KV_BLOCK_SIZE)
+
         if self.config.use_paged_kv:
             mc = self.model.config
             head_dim = getattr(mc, "head_dim", mc.hidden_size // mc.num_attention_heads)
@@ -50,6 +58,8 @@ class NanoServeEngine:
         return self.tokenizer(text, return_tensors="pt").input_ids.to(self.device)
 
     def generate(self, prompt: str, max_new_tokens: int) -> dict:
+        if self.config.use_radix_cache:
+            return self._generate_radix_kv(prompt, max_new_tokens)
         if self.config.use_paged_kv:
             return self._generate_paged_kv(prompt, max_new_tokens)
         if self.config.use_kv_cache:
@@ -165,6 +175,87 @@ class NanoServeEngine:
             cache.free()
 
     @torch.no_grad()
+    def _generate_radix_kv(self, prompt: str, max_new_tokens: int) -> dict:
+        """Paged KV + block-aligned prefix caching. Matches the prompt's complete
+        blocks against the shared RadixCache; only the unmatched remainder (plus any
+        ragged, non-full-block tail) is actually prefilled. Newly-computed complete
+        blocks are inserted into the tree for future requests. Generation and the
+        ragged tail always stay private — never cached (prompt-only cache)."""
+
+        input_ids = self._build_input_ids(prompt)
+        prompt_tokens = input_ids[0].tolist()
+        seq_len = input_ids.shape[1]
+        block_size = settings.PAGED_KV_BLOCK_SIZE
+
+        cache = PagedKVCache(self.pool)
+
+        utils.reset_memory_stats()
+        utils.sync()
+        start = time.perf_counter()
+
+        matched_block_ids, matched_nodes = self.radix_cache.match(prompt_tokens)
+        # Logits (unlike KV) are never cached — always leave >=1 token to actually
+        # forward, even on a verbatim-repeat request that matches 100% of the prompt.
+        max_m = (seq_len - 1) // block_size
+        m = min(len(matched_block_ids), max_m)
+        matched_block_ids, matched_nodes = matched_block_ids[:m], matched_nodes[:m]
+        matched_len = m * block_size
+        self.radix_cache.touch(matched_nodes)
+
+        cache.block_table = list(matched_block_ids)
+        cache.num_tokens = matched_len
+        cache._radix_path = list(matched_nodes)
+
+        try:
+            remainder_len = seq_len - matched_len
+            cache.begin_step(remainder_len)
+            cache_position = torch.arange(matched_len, seq_len, device=self.device)
+            outputs = self.model(
+                input_ids[:, matched_len:],
+                past_key_values=cache,
+                use_cache=True,
+                cache_position=cache_position,
+            )
+            cache.commit_step()
+            next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
+            utils.sync()
+            first_token_time = time.perf_counter() - start
+            generated = torch.cat([input_ids, next_token], dim=1)
+
+            # Insert newly-computed COMPLETE blocks only. The ragged tail is skipped
+            # on purpose: it's about to receive generated tokens, and a block another
+            # request may match into must never be mutated afterward.
+            num_complete_blocks = seq_len // block_size
+            new_cacheable = num_complete_blocks - m
+            if new_cacheable > 0:
+                new_block_ids = cache.block_table[m:m + new_cacheable]
+                parent = matched_nodes[-1] if matched_nodes else self.radix_cache.root
+                cache._radix_path += self.radix_cache.insert(prompt_tokens, parent, m, new_block_ids)
+            cache._cached_blocks = m + new_cacheable
+
+            token_times = []
+            for _ in range(max_new_tokens - 1):
+                if next_token.item() == self.tokenizer.eos_token_id:
+                    break
+                step_start = time.perf_counter()
+                cache.begin_step(1)
+                cache_position = torch.tensor([cache.num_tokens], device=self.device)
+                outputs = self.model(next_token, past_key_values=cache, use_cache=True, cache_position=cache_position)
+                cache.commit_step()
+                next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
+                utils.sync()
+                token_times.append(time.perf_counter() - step_start)
+                generated = torch.cat([generated, next_token], dim=1)
+
+            total_time = time.perf_counter() - start
+            result = self._build_result(generated, input_ids, first_token_time, token_times, total_time)
+            result["prompt_len"] = seq_len
+            result["cache_hit_tokens"] = matched_len
+            return result
+        finally:
+            cache.free(radix_cache=self.radix_cache)
+
+    @torch.no_grad()
     def run_continuous_batch(self, requests: list[dict]) -> dict:
         """Orca/vLLM-style iteration-level continuous batching: each request prefills
         sequentially when admitted (existing single-request PagedKVCache path), then
@@ -221,18 +312,49 @@ class NanoServeEngine:
             next_id += 1
 
             input_ids = self._build_input_ids(req["prompt"])
-            cache = PagedKVCache(self.pool)
+            prompt_tokens = input_ids[0].tolist()
             seq_len = input_ids.shape[1]
-            cache.begin_step(seq_len)
-            cache_position = torch.arange(0, seq_len, device=self.device)
+            cache = PagedKVCache(self.pool)
+
+            matched_nodes: list = []
+            matched_len = 0
+            if self.radix_cache is not None:
+                block_size = settings.PAGED_KV_BLOCK_SIZE
+                matched_block_ids, matched_nodes = self.radix_cache.match(prompt_tokens)
+                max_m = (seq_len - 1) // block_size
+                m = min(len(matched_block_ids), max_m)
+                matched_block_ids, matched_nodes = matched_block_ids[:m], matched_nodes[:m]
+                matched_len = m * block_size
+                self.radix_cache.touch(matched_nodes)
+                cache.block_table = list(matched_block_ids)
+                cache.num_tokens = matched_len
+
+            cache.begin_step(seq_len - matched_len)
+            cache_position = torch.arange(matched_len, seq_len, device=self.device)
             t0 = time.perf_counter()
-            outputs = self.model(input_ids, past_key_values=cache, use_cache=True, cache_position=cache_position)
+            outputs = self.model(
+                input_ids[:, matched_len:], past_key_values=cache,
+                use_cache=True, cache_position=cache_position,
+            )
             cache.commit_step()
             utils.sync()
             ttft = time.perf_counter() - t0
 
+            radix_path = list(matched_nodes)
+            cached_blocks = len(matched_nodes)
+            if self.radix_cache is not None:
+                num_complete_blocks = seq_len // settings.PAGED_KV_BLOCK_SIZE
+                m = len(matched_nodes)
+                new_cacheable = num_complete_blocks - m
+                if new_cacheable > 0:
+                    new_block_ids = cache.block_table[m:m + new_cacheable]
+                    parent = matched_nodes[-1] if matched_nodes else self.radix_cache.root
+                    radix_path += self.radix_cache.insert(prompt_tokens, parent, m, new_block_ids)
+                cached_blocks = m + new_cacheable
+
             next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
-            decode_cache.add_request(rid, cache.block_table, cache.num_tokens)
+            decode_cache.add_request(rid, cache.block_table, cache.num_tokens,
+                                      cached_blocks=cached_blocks, radix_path=radix_path)
             active[rid] = {
                 "prompt": req["prompt"], "prompt_len": seq_len, "max_new_tokens": req["max_new_tokens"],
                 "next_token": next_token, "num_generated": 1,
@@ -240,46 +362,13 @@ class NanoServeEngine:
                 "generated_ids": [next_token.clone()],
                 "done": next_token.item() == self.tokenizer.eos_token_id,
                 "queue_time_s": queue_time_s,
+                "cache_hit_tokens": matched_len,
+                "cached_blocks": cached_blocks,
             }
             if active[rid]["done"]:
                 active[rid]["finish_time"] = time.perf_counter() - wall_start
                 finished[rid] = active.pop(rid)
-                decode_cache.remove_request(rid)
-
-        def try_admit():
-            nonlocal next_id
-            while pending and len(active) < settings.MAX_BATCH_SIZE:
-                elapsed = time.perf_counter() - wall_start
-                if pending[0]["arrival_delay"] > elapsed:
-                    break
-                req = pending.pop(0)
-                rid = next_id
-                next_id += 1
-
-                input_ids = self._build_input_ids(req["prompt"])
-                cache = PagedKVCache(self.pool)
-                seq_len = input_ids.shape[1]
-                cache.begin_step(seq_len)
-                cache_position = torch.arange(0, seq_len, device=self.device)
-                t0 = time.perf_counter()
-                outputs = self.model(input_ids, past_key_values=cache, use_cache=True, cache_position=cache_position)
-                cache.commit_step()
-                utils.sync()
-                ttft = time.perf_counter() - t0
-
-                next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
-                decode_cache.add_request(rid, cache.block_table, cache.num_tokens)
-                active[rid] = {
-                    "prompt": req["prompt"], "prompt_len": seq_len, "max_new_tokens": req["max_new_tokens"],
-                    "next_token": next_token, "num_generated": 1,
-                    "ttft": ttft, "token_times": [], "last_time": time.perf_counter(),
-                    "generated_ids": [next_token.clone()],
-                    "done": next_token.item() == self.tokenizer.eos_token_id,
-                }
-                if active[rid]["done"]:
-                    active[rid]["finish_time"] = time.perf_counter() - wall_start
-                    finished[rid] = active.pop(rid)
-                    decode_cache.remove_request(rid)
+                decode_cache.remove_request(rid, radix_cache=self.radix_cache)
 
         def try_admit():
             now = time.perf_counter() - wall_start
@@ -357,7 +446,7 @@ class NanoServeEngine:
                 if active[rid]["done"]:
                     active[rid]["finish_time"] = time.perf_counter() - wall_start
                     finished[rid] = active.pop(rid)
-                    decode_cache.remove_request(rid)
+                    decode_cache.remove_request(rid, radix_cache=self.radix_cache)
 
             try_admit()
 
@@ -375,11 +464,19 @@ class NanoServeEngine:
                 "finish_time_s": r["finish_time"], "ttft_s": r["ttft"],
                 "admitted_at_s": r["finish_time"] - sum(r["token_times"]) - r["ttft"],
                 "queue_time_s": r.get("queue_time_s", 0.0),
+                "cache_hit_tokens": r.get("cache_hit_tokens", 0),
+                "cached_blocks": r.get("cached_blocks", 0),
             })
 
         queue_times = [r["queue_time_s"] for r in finished.values() if r.get("queue_time_s") is not None]
         rejected_queue_full = sum(1 for r in rejected if r["reason"] == "queue_full")
         rejected_timeout = sum(1 for r in rejected if r["reason"] == "timeout")
+
+        cache_hit_rate = None
+        if self.config.use_radix_cache:
+            total_prompt_tokens = sum(r["prompt_len"] for r in finished.values())
+            total_hit_tokens = sum(r.get("cache_hit_tokens", 0) for r in finished.values())
+            cache_hit_rate = (total_hit_tokens / total_prompt_tokens) if total_prompt_tokens else 0.0
 
         metrics = AggregateMetrics(
             ttft_mean=sum(all_ttft) / len(all_ttft),
@@ -392,6 +489,7 @@ class NanoServeEngine:
             mean_queue_time_ms=(sum(queue_times) / len(queue_times) * 1000) if queue_times else 0.0,
             rejected_queue_full=rejected_queue_full,
             rejected_timeout=rejected_timeout,
+            cache_hit_rate=cache_hit_rate,
         )
         return {
             "metrics": metrics,

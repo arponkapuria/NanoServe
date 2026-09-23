@@ -1,0 +1,252 @@
+{
+  "step": "radix_ramp_off",
+  "timestamp": "2026-09-19T18:34:44",
+  "device": "mps",
+  "model": "Qwen/Qwen3-1.7B",
+  "config": {
+    "use_kv_cache": true,
+    "use_paged_kv": true,
+    "use_continuous_batching": true,
+    "use_scheduler": false,
+    "use_radix_cache": false,
+    "use_chunked_prefill": false,
+    "use_quantization": false,
+    "use_speculative_decoding": false
+  },
+  "num_requests_offered": 9,
+  "metrics": {
+    "ttft_mean": 0.31205937957080704,
+    "tpot_mean": 0.5192578888963908,
+    "throughput_tps": 9.29216156769899,
+    "peak_memory_mb": 3789.4560546875,
+    "saturation_rps": null,
+    "mean_queue_time_ms": 0.0,
+    "cache_hit_rate": null,
+    "quality_delta": null,
+    "draft_acceptance_rate": null,
+    "ttft_p99": 0.3824866185989231,
+    "tpot_p99": 1.0544647090137005,
+    "batch_occupancy_mean": 4.0,
+    "rejected_queue_full": 0,
+    "rejected_timeout": 0
+  },
+  "per_request": [
+    {
+      "request_id": 0,
+      "prompt": "You are a customer support assistant for a cloud infrastructure company. Always be concise, technically precise, and avoid unnecessary pleasantries. The user is a senior software engineer who is already familiar with Linux, networking, and distributed systems, so skip basic explanations. Background: the user's account is on the Enterprise tier with a dedicated support SLA of 15 minutes response time. What is the capital of France?",
+      "generated_text": "The capital of France is Paris.",
+      "num_generated_tokens": 8,
+      "prompt_len": 95,
+      "finish_time_s": 4.301653667120263,
+      "ttft_s": 0.38930929196067154,
+      "admitted_at_s": 0.027545916149392724,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    },
+    {
+      "request_id": 1,
+      "prompt": "You are a customer support assistant for a cloud infrastructure company. Always be concise, technically precise, and avoid unnecessary pleasantries. The user is a senior software engineer who is already familiar with Linux, networking, and distributed systems, so skip basic explanations. Background: the user's account is on the Enterprise tier with a dedicated support SLA of 15 minutes response time. What is the capital of Japan?",
+      "generated_text": "The capital of Japan is Tokyo.",
+      "num_generated_tokens": 8,
+      "prompt_len": 95,
+      "finish_time_s": 5.029801083961502,
+      "ttft_s": 0.3007218341808766,
+      "admitted_at_s": 0.5309854168444872,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    },
+    {
+      "request_id": 3,
+      "prompt": "You are a customer support assistant for a cloud infrastructure company. Always be concise, technically precise, and avoid unnecessary pleasantries. The user is a senior software engineer who is already familiar with Linux, networking, and distributed systems, so skip basic explanations. Background: the user's account is on the Enterprise tier with a dedicated support SLA of 15 minutes response time. What is the capital of Canada?",
+      "generated_text": "The capital of Canada is Ottawa.",
+      "num_generated_tokens": 8,
+      "prompt_len": 95,
+      "finish_time_s": 5.759959334041923,
+      "ttft_s": 0.30333720799535513,
+      "admitted_at_s": 1.352377001196146,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    },
+    {
+      "request_id": 2,
+      "prompt": "You are a customer support assistant for a cloud infrastructure company. Always be concise, technically precise, and avoid unnecessary pleasantries. The user is a senior software engineer who is already familiar with Linux, networking, and distributed systems, so skip basic explanations. Background: the user's account is on the Enterprise tier with a dedicated support SLA of 15 minutes response time. What is the capital of Brazil?",
+      "generated_text": "The capital of Brazil is Bras\u00edlia.",
+      "num_generated_tokens": 9,
+      "prompt_len": 95,
+      "finish_time_s": 6.496169292135164,
+      "ttft_s": 0.3037432499695569,
+      "admitted_at_s": 1.0410085001494735,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    },
+    {
+      "request_id": 4,
+      "prompt": "You are a customer support assistant for a cloud infrastructure company. Always be concise, technically precise, and avoid unnecessary pleasantries. The user is a senior software engineer who is already familiar with Linux, networking, and distributed systems, so skip basic explanations. Background: the user's account is on the Enterprise tier with a dedicated support SLA of 15 minutes response time. What is the capital of Egypt?",
+      "generated_text": "The capital of Egypt is Cairo.",
+      "num_generated_tokens": 8,
+      "prompt_len": 95,
+      "finish_time_s": 6.496190292062238,
+      "ttft_s": 0.3020647498778999,
+      "admitted_at_s": 1.97739279223606,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    },
+    {
+      "request_id": 5,
+      "prompt": "You are a customer support assistant for a cloud infrastructure company. Always be concise, technically precise, and avoid unnecessary pleasantries. The user is a senior software engineer who is already familiar with Linux, networking, and distributed systems, so skip basic explanations. Background: the user's account is on the Enterprise tier with a dedicated support SLA of 15 minutes response time. What is the capital of Kenya?",
+      "generated_text": "The capital of Kenya is Nairobi.",
+      "num_generated_tokens": 8,
+      "prompt_len": 95,
+      "finish_time_s": 6.496196791995317,
+      "ttft_s": 0.30402587493881583,
+      "admitted_at_s": 2.288187166908756,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    },
+    {
+      "request_id": 8,
+      "prompt": "You are a customer support assistant for a cloud infrastructure company. Always be concise, technically precise, and avoid unnecessary pleasantries. The user is a senior software engineer who is already familiar with Linux, networking, and distributed systems, so skip basic explanations. Background: the user's account is on the Enterprise tier with a dedicated support SLA of 15 minutes response time. What is the capital of Vietnam?",
+      "generated_text": "Hanoi.",
+      "num_generated_tokens": 4,
+      "prompt_len": 95,
+      "finish_time_s": 6.984495625132695,
+      "ttft_s": 0.30309095815755427,
+      "admitted_at_s": 5.76987395901233,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    },
+    {
+      "request_id": 6,
+      "prompt": "You are a customer support assistant for a cloud infrastructure company. Always be concise, technically precise, and avoid unnecessary pleasantries. The user is a senior software engineer who is already familiar with Linux, networking, and distributed systems, so skip basic explanations. Background: the user's account is on the Enterprise tier with a dedicated support SLA of 15 minutes response time. What is the capital of Peru?",
+      "generated_text": "The capital of Peru is Lima.",
+      "num_generated_tokens": 8,
+      "prompt_len": 95,
+      "finish_time_s": 7.310001167003065,
+      "ttft_s": 0.3006182911340147,
+      "admitted_at_s": 4.3115228759124875,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    },
+    {
+      "request_id": 7,
+      "prompt": "You are a customer support assistant for a cloud infrastructure company. Always be concise, technically precise, and avoid unnecessary pleasantries. The user is a senior software engineer who is already familiar with Linux, networking, and distributed systems, so skip basic explanations. Background: the user's account is on the Enterprise tier with a dedicated support SLA of 15 minutes response time. What is the capital of Norway?",
+      "generated_text": "The capital of Norway is Oslo.",
+      "num_generated_tokens": 8,
+      "prompt_len": 95,
+      "finish_time_s": 7.425560625037178,
+      "ttft_s": 0.30162295792251825,
+      "admitted_at_s": 5.037126500159502,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    }
+  ],
+  "step_trace": [
+    {
+      "step_index": 0,
+      "num_active": 1,
+      "blocks_needed": 6,
+      "max_len": 96,
+      "step_duration_ms": 97.25987492129207
+    },
+    {
+      "step_index": 1,
+      "num_active": 2,
+      "blocks_needed": 7,
+      "max_len": 97,
+      "step_duration_ms": 181.7996660247445
+    },
+    {
+      "step_index": 2,
+      "num_active": 4,
+      "blocks_needed": 7,
+      "max_len": 98,
+      "step_duration_ms": 305.3812908474356
+    },
+    {
+      "step_index": 3,
+      "num_active": 6,
+      "blocks_needed": 7,
+      "max_len": 99,
+      "step_duration_ms": 422.4476250819862
+    },
+    {
+      "step_index": 4,
+      "num_active": 6,
+      "blocks_needed": 7,
+      "max_len": 100,
+      "step_duration_ms": 418.7816248741001
+    },
+    {
+      "step_index": 5,
+      "num_active": 6,
+      "blocks_needed": 7,
+      "max_len": 101,
+      "step_duration_ms": 418.3761249296367
+    },
+    {
+      "step_index": 6,
+      "num_active": 6,
+      "blocks_needed": 7,
+      "max_len": 102,
+      "step_duration_ms": 424.31399994529784
+    },
+    {
+      "step_index": 7,
+      "num_active": 6,
+      "blocks_needed": 7,
+      "max_len": 102,
+      "step_duration_ms": 414.5498329307884
+    },
+    {
+      "step_index": 8,
+      "num_active": 6,
+      "blocks_needed": 7,
+      "max_len": 102,
+      "step_duration_ms": 414.8505418561399
+    },
+    {
+      "step_index": 9,
+      "num_active": 6,
+      "blocks_needed": 7,
+      "max_len": 103,
+      "step_duration_ms": 417.7859169431031
+    },
+    {
+      "step_index": 10,
+      "num_active": 3,
+      "blocks_needed": 7,
+      "max_len": 99,
+      "step_duration_ms": 239.90954086184502
+    },
+    {
+      "step_index": 11,
+      "num_active": 3,
+      "blocks_needed": 7,
+      "max_len": 100,
+      "step_duration_ms": 235.80095800571144
+    },
+    {
+      "step_index": 12,
+      "num_active": 2,
+      "blocks_needed": 7,
+      "max_len": 101,
+      "step_duration_ms": 155.44941695407033
+    },
+    {
+      "step_index": 13,
+      "num_active": 2,
+      "blocks_needed": 7,
+      "max_len": 102,
+      "step_duration_ms": 160.2308328729123
+    },
+    {
+      "step_index": 14,
+      "num_active": 1,
+      "blocks_needed": 7,
+      "max_len": 102,
+      "step_duration_ms": 110.8823330141604
+    }
+  ],
+  "tree_stats": null,
+  "total_wall_s": 7.425613458966836
+}

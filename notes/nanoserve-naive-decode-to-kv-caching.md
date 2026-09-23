@@ -128,10 +128,6 @@ A few things worth actually understanding here, not just glancing at:
 
 **Memory went down, which seems backwards until you think about what's actually being stored.** You'd expect a cache to cost *more* memory, not less — you're storing something that didn't exist before. But naive decode was repeatedly allocating full-sequence attention buffers at every step, and by the end of a 128-token generation those buffers cover a sequence over 200 tokens long, recreated from scratch each time. The KV cache, by contrast, only needs to compute activations for exactly one new token per step, plus a steadily growing (but much smaller, more efficient) persistent cache. The transient waste from naive decode's repeated full recomputation actually outweighs the cache's storage cost.
 
-All four core metrics, naive vs. KV cache, side by side:
-
-![Naive Decode vs KV Cache — TTFT, TPOT, Throughput, Peak Memory|500](/results/images/naive_vs_kvcache.png)
-
 ## What's Next
 
 The core idea here — remember what you've already computed instead of redoing it — is the foundation almost every other LLM serving optimization builds on top of. Continuous batching, paged attention, prefix caching: all of them are, at some level, smarter ways of managing this same cache across multiple requests at once instead of just one.

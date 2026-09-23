@@ -1,0 +1,148 @@
+{
+  "step": "radix_cache_continuous_batching",
+  "timestamp": "2026-09-19T14:37:22",
+  "device": "mps",
+  "model": "Qwen/Qwen3-1.7B",
+  "config": {
+    "use_kv_cache": true,
+    "use_paged_kv": true,
+    "use_continuous_batching": true,
+    "use_scheduler": false,
+    "use_radix_cache": true,
+    "use_chunked_prefill": false,
+    "use_quantization": false,
+    "use_speculative_decoding": false
+  },
+  "num_requests_offered": 9,
+  "metrics": {
+    "ttft_mean": 0.16797870834771958,
+    "tpot_mean": 0.39742372732287573,
+    "throughput_tps": 12.541598697277264,
+    "peak_memory_mb": 3771.206787109375,
+    "saturation_rps": null,
+    "mean_queue_time_ms": 0.0,
+    "cache_hit_rate": 0.41830065359477125,
+    "quality_delta": null,
+    "draft_acceptance_rate": null,
+    "ttft_p99": 0.18493662558496,
+    "tpot_p99": 0.7376804170198739,
+    "batch_occupancy_mean": 4.05,
+    "rejected_queue_full": 0,
+    "rejected_timeout": 0
+  },
+  "per_request": [
+    {
+      "request_id": 0,
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of France?",
+      "generated_text": "The capital of France is Paris.",
+      "num_generated_tokens": 8,
+      "prompt_len": 34,
+      "finish_time_s": 2.729084291961044,
+      "ttft_s": 0.18532470893114805,
+      "admitted_at_s": 0.023741208016872406,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 0
+    },
+    {
+      "request_id": 1,
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Japan?",
+      "generated_text": "The capital of Japan is Tokyo.",
+      "num_generated_tokens": 8,
+      "prompt_len": 34,
+      "finish_time_s": 3.6749320840463042,
+      "ttft_s": 0.1804736671037972,
+      "admitted_at_s": 0.40742683387361467,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 16
+    },
+    {
+      "request_id": 4,
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Egypt?",
+      "generated_text": "The capital of Egypt is Cairo.",
+      "num_generated_tokens": 8,
+      "prompt_len": 34,
+      "finish_time_s": 5.013342292048037,
+      "ttft_s": 0.16486570797860622,
+      "admitted_at_s": 1.6313785428646952,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 16
+    },
+    {
+      "request_id": 2,
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Brazil?",
+      "generated_text": "The capital of Brazil is **Bras\u00edlia**.",
+      "num_generated_tokens": 12,
+      "prompt_len": 34,
+      "finish_time_s": 5.959930541925132,
+      "ttft_s": 0.1640343749895692,
+      "admitted_at_s": 0.7716115009970963,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 16
+    },
+    {
+      "request_id": 3,
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Canada?",
+      "generated_text": "The capital of Canada is **Ottawa**.",
+      "num_generated_tokens": 12,
+      "prompt_len": 34,
+      "finish_time_s": 6.300556834088638,
+      "ttft_s": 0.1637422910425812,
+      "admitted_at_s": 1.1697453770320863,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 16
+    },
+    {
+      "request_id": 5,
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Kenya?",
+      "generated_text": "The capital of Kenya is **Nairobi**.",
+      "num_generated_tokens": 11,
+      "prompt_len": 34,
+      "finish_time_s": 6.3005921670701355,
+      "ttft_s": 0.16349970898590982,
+      "admitted_at_s": 1.803756375098601,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 16
+    },
+    {
+      "request_id": 6,
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Peru?",
+      "generated_text": "The capital of Peru is **Lima**.",
+      "num_generated_tokens": 11,
+      "prompt_len": 34,
+      "finish_time_s": 6.733783958945423,
+      "ttft_s": 0.16331445798277855,
+      "admitted_at_s": 2.7379294589627534,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 16
+    },
+    {
+      "request_id": 7,
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Norway?",
+      "generated_text": "The capital of Norway is **Oslo**.",
+      "num_generated_tokens": 11,
+      "prompt_len": 34,
+      "finish_time_s": 7.067137917038053,
+      "ttft_s": 0.16293087508529425,
+      "admitted_at_s": 3.6845256260130554,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 16
+    },
+    {
+      "request_id": 8,
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Vietnam?",
+      "generated_text": "The capital of Vietnam is Hanoi.",
+      "num_generated_tokens": 9,
+      "prompt_len": 34,
+      "finish_time_s": 7.176081709098071,
+      "ttft_s": 0.1636225830297917,
+      "admitted_at_s": 5.022196585079655,
+      "queue_time_s": 0.0,
+      "cache_hit_tokens": 16
+    }
+  ],
+  "tree_stats": {
+    "node_count": 12,
+    "cached_blocks": 12
+  },
+  "total_wall_s": 7.176118625095114
+}

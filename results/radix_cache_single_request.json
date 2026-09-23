@@ -1,0 +1,95 @@
+{
+  "step": "radix_cache_single_request",
+  "timestamp": "2026-09-19T12:08:14",
+  "device": "mps",
+  "model": "Qwen/Qwen3-1.7B",
+  "config": {
+    "use_kv_cache": true,
+    "use_paged_kv": true,
+    "use_continuous_batching": false,
+    "use_scheduler": false,
+    "use_radix_cache": true,
+    "use_chunked_prefill": false,
+    "use_quantization": false,
+    "use_speculative_decoding": false
+  },
+  "gen_len": 32,
+  "num_runs": 5,
+  "warmup_runs": 1,
+  "per_request": [
+    {
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of France?",
+      "prompt_len": 34,
+      "cache_hit_tokens": 0,
+      "ttft_ms": 188.40212514624,
+      "tpot_ms": 95.8371725199478,
+      "throughput_tps": 9.26838775145578,
+      "peak_memory_mb": 3748.44482421875,
+      "text": "The capital of France is Paris."
+    },
+    {
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Japan?",
+      "prompt_len": 34,
+      "cache_hit_tokens": 16,
+      "ttft_ms": 200.8615001104772,
+      "tpot_ms": 96.1484464683703,
+      "throughput_tps": 9.11317033810044,
+      "peak_memory_mb": 3746.637939453125,
+      "text": "The capital of Japan is Tokyo."
+    },
+    {
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of Brazil?",
+      "prompt_len": 34,
+      "cache_hit_tokens": 16,
+      "ttft_ms": 175.65862508490682,
+      "tpot_ms": 102.91017041626301,
+      "throughput_tps": 9.12382426856941,
+      "peak_memory_mb": 3746.637939453125,
+      "text": "The capital of Brazil is **Bras\u00edlia**."
+    },
+    {
+      "prompt": "You are a helpful assistant. Background: the user is a software engineer. What is the capital of France?",
+      "prompt_len": 34,
+      "cache_hit_tokens": 32,
+      "ttft_ms": 124.03008295223117,
+      "tpot_ms": 95.7436787430197,
+      "throughput_tps": 10.02980000272383,
+      "peak_memory_mb": 3739.217529296875,
+      "text": "The capital of France is Paris."
+    }
+  ],
+  "cache_hit_rate": 0.47058823529411764,
+  "tree_stats": {
+    "node_count": 20,
+    "cached_blocks": 20
+  },
+  "timing_by_condition": {
+    "miss": {
+      "ttft_mean_ms": 367.592491582036,
+      "tpot_mean_ms": 101.28385513840662,
+      "throughput_tps_mean": 9.041709764011182,
+      "peak_memory_mb_mean": 3749.024609375,
+      "hit_rate_mean": 0.0,
+      "forwarded_tokens_mean": 35.8,
+      "n": 5
+    },
+    "partial": {
+      "ttft_mean_ms": 170.52958332933486,
+      "tpot_mean_ms": 96.33479009292297,
+      "throughput_tps_mean": 10.08777883413742,
+      "peak_memory_mb_mean": 3746.637939453125,
+      "hit_rate_mean": 0.42105263157894735,
+      "forwarded_tokens_mean": 22.0,
+      "n": 5
+    },
+    "full": {
+      "ttft_mean_ms": 95.86134986020625,
+      "tpot_mean_ms": 95.45897737012378,
+      "throughput_tps_mean": 10.420214828139693,
+      "peak_memory_mb_mean": 3739.217529296875,
+      "hit_rate_mean": 0.9411764705882353,
+      "forwarded_tokens_mean": 2.0,
+      "n": 5
+    }
+  }
+}
