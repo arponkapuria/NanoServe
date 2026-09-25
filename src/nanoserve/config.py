@@ -29,3 +29,4 @@ class AggregateMetrics:
     batch_occupancy_mean: float | None = None
     rejected_queue_full: int | None = None
     rejected_timeout: int | None = None
+    tpot_max: float | None = None

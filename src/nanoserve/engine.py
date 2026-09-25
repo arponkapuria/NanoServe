@@ -32,6 +32,9 @@ class NanoServeEngine:
                 raise ValueError("use_radix_cache requires use_paged_kv")
             self.radix_cache = RadixCache(settings.PAGED_KV_BLOCK_SIZE)
 
+        if self.config.use_chunked_prefill and not self.config.use_paged_kv:
+            raise ValueError("use_chunked_prefill requires use_paged_kv")
+
         if self.config.use_paged_kv:
             mc = self.model.config
             head_dim = getattr(mc, "head_dim", mc.hidden_size // mc.num_attention_heads)
@@ -256,18 +259,31 @@ class NanoServeEngine:
             cache.free(radix_cache=self.radix_cache)
 
     @torch.no_grad()
-    def run_continuous_batch(self, requests: list[dict]) -> dict:
+    def run_continuous_batch(self, requests: list[dict], chunk_size: int | None = None) -> dict:
         """Orca/vLLM-style iteration-level continuous batching: each request prefills
-        sequentially when admitted (existing single-request PagedKVCache path), then
-        joins a shared BatchedDecodeCache decode batch (capped at settings.MAX_BATCH_SIZE)
-        until EOS or max_new_tokens. Batch membership is re-evaluated every decode step.
+        (existing single-request PagedKVCache path), then joins a shared BatchedDecodeCache
+        decode batch (capped at settings.MAX_BATCH_SIZE) until EOS or max_new_tokens.
+        Batch membership is re-evaluated every decode step.
 
         When self.config.use_scheduler is True, arrivals pass through a Scheduler first:
         an explicit FCFS wait queue with fixed-depth backpressure (settings.MAX_QUEUE_DEPTH,
         rejected reason 'queue_full') and a fixed per-request wait timeout
         (settings.MAX_QUEUE_WAIT_MS, rejected reason 'timeout') before being admitted.
         When False, falls back to step 4's original behavior exactly: admit immediately
-        whenever a slot is free, unbounded queue, no rejections."""
+        whenever a slot is free, unbounded queue, no rejections.
+
+        When self.config.use_chunked_prefill is True (step 7), a prompt is prefilled in
+        chunks of `chunk_size` tokens (default settings.PREFILL_CHUNK_SIZE), ONE chunk per
+        loop iteration and only AFTER that iteration's decode step (decode-first). Active
+        requests therefore never wait longer than one chunk for their next token. One prompt
+        is prefilled at a time and holds a batch slot while doing so. When False, the whole
+        prompt is prefilled in a single forward pass, exactly as in steps 4-6."""
+
+        chunked = self.config.use_chunked_prefill
+        block_size = settings.PAGED_KV_BLOCK_SIZE
+        chunk_size = chunk_size or settings.PREFILL_CHUNK_SIZE
+        if chunked and chunk_size % block_size:
+            raise ValueError(f"chunk_size {chunk_size} must be a multiple of block size {block_size}")
 
         decode_cache = BatchedDecodeCache(self.pool)
         pending = sorted(requests, key=lambda r: r["arrival_delay"])
@@ -275,6 +291,8 @@ class NanoServeEngine:
         finished: dict[int, dict] = {}
         rejected: list[dict] = []
         waiting_no_scheduler: list[dict] = []  # only used when scheduler disabled
+        prefilling: dict | None = None         # step 7: the ONE request currently mid-prefill
+        prefill_trace: list[dict] = []         # step 7: one entry per chunk forward pass
         next_id = 0
         occupancy_samples = []
 
@@ -306,8 +324,10 @@ class NanoServeEngine:
                     waiting_no_scheduler.append(req)
             pending = still_waiting
 
-        def admit_one(req, queue_time_s):
-            nonlocal next_id
+        def start_prefill(req, queue_time_s):
+            """Step 7 (1/2): set a request up for prefill — tokenize, radix match, create its
+            cache — but run NO model code yet. advance_prefill() consumes it chunk by chunk."""
+            nonlocal next_id, prefilling
             rid = next_id
             next_id += 1
 
@@ -319,7 +339,6 @@ class NanoServeEngine:
             matched_nodes: list = []
             matched_len = 0
             if self.radix_cache is not None:
-                block_size = settings.PAGED_KV_BLOCK_SIZE
                 matched_block_ids, matched_nodes = self.radix_cache.match(prompt_tokens)
                 max_m = (seq_len - 1) // block_size
                 m = min(len(matched_block_ids), max_m)
@@ -329,27 +348,56 @@ class NanoServeEngine:
                 cache.block_table = list(matched_block_ids)
                 cache.num_tokens = matched_len
 
-            cache.begin_step(seq_len - matched_len)
-            cache_position = torch.arange(matched_len, seq_len, device=self.device)
+            prefilling = {
+                "rid": rid, "req": req, "input_ids": input_ids, "prompt_tokens": prompt_tokens,
+                "seq_len": seq_len, "cache": cache, "matched_nodes": matched_nodes,
+                "matched_len": matched_len, "next_pos": matched_len, "chunk_index": 0,
+                "queue_time_s": queue_time_s, "t_admit": time.perf_counter(),
+            }
+
+        def advance_prefill():
+            """Step 7 (2/2): run ONE chunk of the in-flight prefill (the entire remainder when
+            chunking is off). Chunk k attends to chunks 0..k-1 already sitting in the paged
+            cache — same mechanism as the radix remainder path. On the LAST chunk: sample token
+            1, cache the prompt's complete blocks in the radix tree, hand the request to the
+            decode batch."""
+            nonlocal prefilling
+            p = prefilling
+            cache, seq_len, start = p["cache"], p["seq_len"], p["next_pos"]
+            end = min(start + chunk_size, seq_len) if chunked else seq_len
+
+            cache.begin_step(end - start)
+            cache_position = torch.arange(start, end, device=self.device)
             t0 = time.perf_counter()
             outputs = self.model(
-                input_ids[:, matched_len:], past_key_values=cache,
+                p["input_ids"][:, start:end], past_key_values=cache,
                 use_cache=True, cache_position=cache_position,
             )
             cache.commit_step()
             utils.sync()
-            ttft = time.perf_counter() - t0
+            prefill_trace.append({
+                "request_id": p["rid"], "chunk_index": p["chunk_index"], "start": start,
+                "end": end, "duration_ms": (time.perf_counter() - t0) * 1000,
+            })
+            p["chunk_index"] += 1
+            p["next_pos"] = end
+            if end < seq_len:
+                return  # more chunks to go; the decode batch gets its turn first
+
+            # ---- last chunk: everything below is the old admit_one tail, unchanged ----
+            rid, req, matched_nodes = p["rid"], p["req"], p["matched_nodes"]
+            ttft = time.perf_counter() - p["t_admit"]  # admission -> first token, incl. interleaved decode steps
 
             radix_path = list(matched_nodes)
             cached_blocks = len(matched_nodes)
             if self.radix_cache is not None:
-                num_complete_blocks = seq_len // settings.PAGED_KV_BLOCK_SIZE
+                num_complete_blocks = seq_len // block_size
                 m = len(matched_nodes)
                 new_cacheable = num_complete_blocks - m
                 if new_cacheable > 0:
                     new_block_ids = cache.block_table[m:m + new_cacheable]
                     parent = matched_nodes[-1] if matched_nodes else self.radix_cache.root
-                    radix_path += self.radix_cache.insert(prompt_tokens, parent, m, new_block_ids)
+                    radix_path += self.radix_cache.insert(p["prompt_tokens"], parent, m, new_block_ids)
                 cached_blocks = m + new_cacheable
 
             next_token = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
@@ -361,14 +409,26 @@ class NanoServeEngine:
                 "ttft": ttft, "token_times": [], "last_time": time.perf_counter(),
                 "generated_ids": [next_token.clone()],
                 "done": next_token.item() == self.tokenizer.eos_token_id,
-                "queue_time_s": queue_time_s,
-                "cache_hit_tokens": matched_len,
+                "queue_time_s": p["queue_time_s"],
+                "cache_hit_tokens": p["matched_len"],
                 "cached_blocks": cached_blocks,
             }
+            prefilling = None
             if active[rid]["done"]:
                 active[rid]["finish_time"] = time.perf_counter() - wall_start
                 finished[rid] = active.pop(rid)
                 decode_cache.remove_request(rid, radix_cache=self.radix_cache)
+
+        def admit(req, queue_time_s):
+            start_prefill(req, queue_time_s)
+            if not chunked:  # chunking off: whole prompt now, in one pass (steps 4-6 behavior)
+                advance_prefill()
+
+        def slots_free():
+            if prefilling is not None:  # step 7: one prefill at a time; it already holds a slot
+                return 0
+            free = settings.MAX_BATCH_SIZE - len(active)
+            return min(free, 1) if chunked else free
 
         def try_admit():
             now = time.perf_counter() - wall_start
@@ -377,12 +437,11 @@ class NanoServeEngine:
                 for entry in scheduler.expire(now):
                     rejected.append({"prompt": entry["request"]["prompt"], "reason": "timeout",
                                       "arrival_delay": entry["request"]["arrival_delay"]})
-                free_slots = settings.MAX_BATCH_SIZE - len(active)
-                for entry in scheduler.pull(now, free_slots):
-                    admit_one(entry["request"], entry["queue_time_s"])
+                for entry in scheduler.pull(now, slots_free()):
+                    admit(entry["request"], entry["queue_time_s"])
             else:
-                while waiting_no_scheduler and len(active) < settings.MAX_BATCH_SIZE:
-                    admit_one(waiting_no_scheduler.pop(0), queue_time_s=0.0)
+                while waiting_no_scheduler and slots_free() > 0:
+                    admit(waiting_no_scheduler.pop(0), queue_time_s=0.0)
 
         def queued_depth():
             return scheduler.depth if scheduler is not None else len(waiting_no_scheduler)
@@ -390,8 +449,8 @@ class NanoServeEngine:
         try_admit()
         step_index = 0  # REMOVE: for debugging, can be removed later
         step_trace = []
-        while active or pending or queued_depth():
-            if not active:
+        while active or pending or queued_depth() or prefilling is not None:
+            if not active and prefilling is None:
                 now = time.perf_counter() - wall_start
                 if queued_depth() == 0 and pending:
                     wait = pending[0]["arrival_delay"] - now
@@ -400,53 +459,57 @@ class NanoServeEngine:
                 try_admit()
                 continue
 
-            active_ids = list(active.keys())
-            occupancy_samples.append(len(active_ids))
-            batched_tokens = torch.cat([active[rid]["next_token"] for rid in active_ids], dim=0)
+            if active:
+                active_ids = list(active.keys())
+                occupancy_samples.append(len(active_ids))
+                batched_tokens = torch.cat([active[rid]["next_token"] for rid in active_ids], dim=0)
 
-            position_ids = decode_cache.begin_step(active_ids)
-            blocks_needed = decode_cache._read_table.shape[1]   
-            cache_position = torch.tensor([decode_cache._max_len - 1], device=self.device)
-            attn_mask = decode_cache._attn_bias
+                position_ids = decode_cache.begin_step(active_ids)
+                blocks_needed = decode_cache._read_table.shape[1]
+                cache_position = torch.tensor([decode_cache._max_len - 1], device=self.device)
+                attn_mask = decode_cache._attn_bias
 
-            utils.sync()    
-            step_t0 = time.perf_counter()   
+                utils.sync()
+                step_t0 = time.perf_counter()
 
-            outputs = self.model(
-                batched_tokens, past_key_values=decode_cache, use_cache=True,
-                cache_position=cache_position, position_ids=position_ids, attention_mask=attn_mask,
-            )
-            utils.sync()
-            step_duration = time.perf_counter() - step_t0
-            decode_cache.commit_step()
+                outputs = self.model(
+                    batched_tokens, past_key_values=decode_cache, use_cache=True,
+                    cache_position=cache_position, position_ids=position_ids, attention_mask=attn_mask,
+                )
+                utils.sync()
+                step_duration = time.perf_counter() - step_t0
+                decode_cache.commit_step()
 
-            step_trace.append({
-                "step_index": step_index, "num_active": len(active_ids),
-                "blocks_needed": blocks_needed, "max_len": decode_cache._max_len,
-                "step_duration_ms": step_duration * 1000,
-            })
-            step_index += 1
+                step_trace.append({
+                    "step_index": step_index, "num_active": len(active_ids),
+                    "blocks_needed": blocks_needed, "max_len": decode_cache._max_len,
+                    "step_duration_ms": step_duration * 1000,
+                })
+                step_index += 1
 
-            now = time.perf_counter()
+                now = time.perf_counter()
 
-            next_tokens = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
-            for i, rid in enumerate(active_ids):
-                st = active[rid]
-                st["token_times"].append(now - st["last_time"])
-                st["last_time"] = now
-                tok = next_tokens[i:i + 1]
-                st["next_token"] = tok
-                st["generated_ids"].append(tok.clone())
-                st["num_generated"] += 1
-                is_eos = tok.item() == self.tokenizer.eos_token_id
-                if is_eos or st["num_generated"] >= st["max_new_tokens"]:
-                    st["done"] = True
+                next_tokens = outputs.logits[:, -1, :].argmax(dim=-1, keepdim=True)
+                for i, rid in enumerate(active_ids):
+                    st = active[rid]
+                    st["token_times"].append(now - st["last_time"])
+                    st["last_time"] = now
+                    tok = next_tokens[i:i + 1]
+                    st["next_token"] = tok
+                    st["generated_ids"].append(tok.clone())
+                    st["num_generated"] += 1
+                    is_eos = tok.item() == self.tokenizer.eos_token_id
+                    if is_eos or st["num_generated"] >= st["max_new_tokens"]:
+                        st["done"] = True
 
-            for rid in list(active.keys()):
-                if active[rid]["done"]:
-                    active[rid]["finish_time"] = time.perf_counter() - wall_start
-                    finished[rid] = active.pop(rid)
-                    decode_cache.remove_request(rid, radix_cache=self.radix_cache)
+                for rid in list(active.keys()):
+                    if active[rid]["done"]:
+                        active[rid]["finish_time"] = time.perf_counter() - wall_start
+                        finished[rid] = active.pop(rid)
+                        decode_cache.remove_request(rid, radix_cache=self.radix_cache)
+
+            if prefilling is not None:  # step 7: decode-first — one prefill chunk AFTER the decode step
+                advance_prefill()
 
             try_admit()
 
@@ -466,6 +529,7 @@ class NanoServeEngine:
                 "queue_time_s": r.get("queue_time_s", 0.0),
                 "cache_hit_tokens": r.get("cache_hit_tokens", 0),
                 "cached_blocks": r.get("cached_blocks", 0),
+                "token_times_s": r["token_times"],  # step 7: per-token gaps, for stall analysis
             })
 
         queue_times = [r["queue_time_s"] for r in finished.values() if r.get("queue_time_s") is not None]
@@ -485,7 +549,8 @@ class NanoServeEngine:
             peak_memory_mb=utils.peak_memory_mb(),
             ttft_p99=utils.percentile(all_ttft, 99),
             tpot_p99=utils.percentile(all_step_times, 99),
-            batch_occupancy_mean=sum(occupancy_samples) / len(occupancy_samples),
+            tpot_max=max(all_step_times) if all_step_times else 0.0,
+            batch_occupancy_mean=sum(occupancy_samples) / len(occupancy_samples) if occupancy_samples else 0.0,
             mean_queue_time_ms=(sum(queue_times) / len(queue_times) * 1000) if queue_times else 0.0,
             rejected_queue_full=rejected_queue_full,
             rejected_timeout=rejected_timeout,
@@ -498,9 +563,11 @@ class NanoServeEngine:
             "total_wall_s": total_wall,
             "per_request": per_request,
             "step_trace": step_trace,
+            "prefill_trace": prefill_trace,
+            "chunk_size": chunk_size if chunked else None,
             "rejected": rejected,
         }
-                
+
     def _build_result(self, generated, input_ids, first_token_time, token_times, total_time) -> dict:
         num_new = generated.shape[1] - input_ids.shape[1]
         metrics = AggregateMetrics(

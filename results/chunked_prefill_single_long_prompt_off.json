@@ -1,0 +1,39 @@
+{
+  "step": "chunked_prefill_single_long_prompt_off",
+  "timestamp": "2026-09-24T17:16:28",
+  "device": "mps",
+  "model": "Qwen/Qwen3-1.7B",
+  "config": {
+    "use_kv_cache": true,
+    "use_paged_kv": true,
+    "use_continuous_batching": true,
+    "use_scheduler": false,
+    "use_radix_cache": false,
+    "use_chunked_prefill": false,
+    "use_quantization": false,
+    "use_speculative_decoding": false
+  },
+  "chunk_size": null,
+  "num_runs": 3,
+  "prompt_len": 433,
+  "chunk_ms": [
+    1126.7
+  ],
+  "metrics": {
+    "ttft_mean": 1.1242291109980822,
+    "tpot_mean": 0.1423054013049547,
+    "throughput_tps": 6.131188696620743,
+    "peak_memory_mb": 3858.62939453125
+  },
+  "generated_text": "**Comprehensive Technical Overview of How Modern Operating Systems Manage Virtual Memory**\n\nVirtual memory is a fundamental concept in modern operating systems that enables the execution of multiple processes on a single physical machine by allowing each process to have its own virtual address space.",
+  "text_identical_to_unchunked": null,
+  "prefill_trace": [
+    {
+      "request_id": 0,
+      "chunk_index": 0,
+      "start": 0,
+      "end": 433,
+      "duration_ms": 1126.669541998126
+    }
+  ]
+}

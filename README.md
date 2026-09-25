@@ -28,11 +28,8 @@ Serving engines like vLLM, SGLang, and TensorRT-LLM are full of optimizations th
 | 3 | Continuous batching | Iteration-level scheduler that shares the accelerator across multiple concurrent requests instead of serving one at a time — admits/evicts requests every decode step via a shared, multi-tenant paged KV cache. +31.8% system throughput over sequential serving; 36 vs. 4 concurrent requests fit in the same memory budget compared to naive fixed-reservation. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-continuous-batching/) |
 | 4 | Scheduler | FCFS admission queue with fixed-depth backpressure and per-request timeouts on top of continuous batching's admit-when-free policy. Tested with a two-wave burst — with a scheduler-off control run reproducing continuous batching's unbounded fallback exactly. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-scheduler/) |
 | 5 | Prefix Caching | Block-aligned RadixAttention (SGLang's prefix-caching technique) built on the paged allocator — skips prefill (only) for tokens a prior request with the same prefix already computed, sharing physical KV blocks instead of duplicating them. 73.7% cache hit rate on a shared-prefix ramp test; -62.5% KV blocks used, 3.47x concurrent capacity (36 → 125 requests) vs. no sharing; TTFT -37.3% aggregate. | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-prefix-caching/) |
-| 6 | Chunked Prefill | - | ⏳ | — |
-| 7 | Speculative Decoding | - | ⏳ | — |
-| 8 | Quantization | - | ⏳ | — |
-| 9 | Load Testing | - | ⏳ | — |
-| 10 | Comparison | - | ⏳ | — |
+| 6 | Chunked Prefill | Splits a long prompt's prefill into fixed-size chunks (default 128 tokens) interleaved one-per-iteration with other requests' decode steps, decode-first — instead of one uninterrupted forward pass blocking the whole batch. On a 3-streaming-request + 1 long-prompt (433 tokens) scenario: worst decoder-side gap -49% (1,574ms → 801ms), at the cost of +116% TTFT for the long request itself and ~-5% throughput. Single-request path unaffected (flag scoped to continuous batching only). | ✅ | [Blog](https://arponkapuria.github.io/blogs/posts/nanoserve-chunked-prefill/) |
+
 
 Each step is documented (blogs) as it's built, so the project doubles as a running record of what was done and why, not just a finished artifact.
 
@@ -42,8 +39,8 @@ Each step is documented (blogs) as it's built, so the project doubles as a runni
 NanoServe/
 ├── src/nanoserve/
 │   ├── config.py                       # EngineConfig feature flags + AggregateMetrics dataclass
-│   ├── settings.py                     # device detection, model/dtype config, MAX_BATCH_SIZE, MAX_QUEUE_DEPTH, MAX_QUEUE_WAIT_MS, benchmark request presets
-│   ├── engine.py                       # naive decode, kv cache, paged_kv_cache, radix-aware prefill (single-request + continuous-batch admission)
+│   ├── settings.py                     # device detection, model/dtype config, MAX_BATCH_SIZE, MAX_QUEUE_DEPTH, MAX_QUEUE_WAIT_MS, PREFILL_CHUNK_SIZE, benchmark request presets
+│   ├── engine.py                       # naive decode, kv cache, paged_kv_cache, radix-aware prefill, chunked prefill (single-request + continuous-batch admission)
 │   ├── naive_baseline.py               # naive reservation allocator + simulated contiguous arena, for fragmentation comparison
 │   ├── paged_cache.py                  # PagedKVPool (block allocator), PagedKVCache (single-request), BatchedDecodeCache (multi-tenant) — both radix-cache aware (cached_blocks split, ref-count release)
 │   ├── scheduler.py                    # Scheduler: FCFS queue, fixed-depth backpressure, fixed-wait timeout — pure state-transition class, no clock/model calls
@@ -60,6 +57,7 @@ NanoServe/
 │   ├── plot_radix_conditions.py        # TTFT by cache-hit condition (miss/partial/full), single-request test
 │   ├── plot_radix_ramp.py              # per-request TTFT, radix on vs off, continuous-batching ramp
 │   ├── plot_radix_capacity.py          # concurrent-capacity gain from prefix sharing
+│   ├── plot_chunked_prefill.py         # single-long-prompt overhead, decode-stall token-gap timeline, chunk-size sweep
 │   └── images/                         # generated plots
 │
 ├── benchmark.py                        # benchmarking and compare phases
@@ -69,9 +67,9 @@ NanoServe/
 ├── radix_benchmark.py                  # radix caching benchmarking - single-request (miss/partial/full hit conditions)
 ├── radix_ramp_benchmark.py             # continuous-batching ramp: radix cache on/off, --use-scheduler flag
 ├── radix_capacity_savings.py           # block/capacity-savings analysis from a saved ramp result
+├── chunked_prefill_benchmark.py        # single-long-prompt overhead test + 3-request decode-stall test, --use-chunked-prefill / --chunk-size
 └── notes/                              # writeups explaining phases/results
 ```
- 
 
 ## Getting Started
 
@@ -92,28 +90,38 @@ uv sync
 
 Prompt presets (`short`, `medium`, `long`, `prefix_shared`) are defined in `settings.py`, each with its own `max_new_tokens` length.
 
+**Naive Decode**
+  
 ```bash
 # Naive decode (baseline)
 uv run python benchmark.py --preset medium  
 ```
+
+**Key Value Caching**
 
 ```bash
 # KV cache
 uv run python benchmark.py --preset medium --use-kv-cache 
 ``` 
 
+**KV Cache Memory Management**
+
 ```bash
-# Paged KV cache
+# KV cache + PagedAttention
 uv run python benchmark.py --preset medium --use-paged-kv
 
 # Fragmentation tests (internal + external, paged vs naive)
 uv run python test_fragmentation.py 
 ```
 
+**Continuous Batching**
+
 ```bash
 # Continuous batching (sequential vs. batched, same requests, same pool)
 uv run python continuous_batch_benchmark.py
 ```
+
+**Scheduler**
 
 ```bash
 # Scheduler (two-wave burst: admits, backpressure, timeouts, clean recovery)
@@ -123,16 +131,33 @@ uv run scheduler_benchmark.py --wave full --use-scheduler
 uv run scheduler_benchmark.py --wave full
 ```
 
+**Prefix Caching**
+
 ```bash
-# Radix prefix cache — single-request (miss/partial/full hit conditions)
+# Prefix Cache + RadixAttention — single-request (miss/partial/full hit conditions)
 uv run python radix_benchmark.py
 
-# Radix prefix cache — continuous-batching ramp, on vs off
+# Prefix Cache + RadixAttention — continuous-batching ramp, on vs off
 uv run python radix_ramp_benchmark.py --use-radix-cache --use-scheduler
 uv run python radix_ramp_benchmark.py --use-scheduler
 
 # Block/capacity savings from a saved ramp result
 uv run python radix_capacity_savings.py results/radix_ramp_radix_on_schedule_on.json
+```
+
+**Chunked Prefill**
+
+```bash
+# Chunked prefill — single long prompt alone (overhead + correctness)
+uv run python chunked_prefill_benchmark.py --test single-long-prompt
+uv run python chunked_prefill_benchmark.py --test single-long-prompt --use-chunked-prefill
+ 
+# Chunked prefill — 3 streaming requests + a long prompt arriving mid-run (the stall test)
+uv run python chunked_prefill_benchmark.py --test decode-stall
+uv run python chunked_prefill_benchmark.py --test decode-stall --use-chunked-prefill [--chunk-size 64]
+ 
+# Plots for both tests above
+uv run python results/plot_chunked_prefill.py
 ```
 
 Metrics and plots are written to `results/`.

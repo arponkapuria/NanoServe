@@ -115,3 +115,15 @@ SCHEDULER_BURST_WAVE2 = [
     for i in range(6)
 ]
 SCHEDULER_BURST_REQUESTS = SCHEDULER_BURST_WAVE1 + SCHEDULER_BURST_WAVE2
+
+# Step 7: chunked prefill
+PREFILL_CHUNK_SIZE = 128  # tokens per prefill chunk; must be a multiple of PAGED_KV_BLOCK_SIZE
+
+# decode-stall test workload: 3 short requests streaming ~100 tokens each, then a long prompt
+# (the "long" preset) arrives at t=3.0s, mid-decode. Measures how long the 3 streams freeze.
+DECODE_STALL_REQUESTS = [
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": 100, "arrival_delay": 0.0},
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": 100, "arrival_delay": 0.1},
+    {"prompt": BENCHMARK_PROMPTS["short"], "max_new_tokens": 100, "arrival_delay": 0.2},
+    {"prompt": BENCHMARK_PROMPTS["long"], "max_new_tokens": 16, "arrival_delay": 3.0},
+]
