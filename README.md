@@ -4,7 +4,10 @@
 
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://python.org) [![PyTorch](https://img.shields.io/badge/PyTorch-2.6+-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org) [![Transformers](https://img.shields.io/badge/🤗%20Transformers-4.45+-yellow)](https://huggingface.co/docs/transformers) [![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**A tiny LLM inference engine, build incrementally, phase by phase — every core serving optimization implemented from scratch, benchmarked, and unified into a production-style serving system.**
+**A Tiny LLM inference engine for Apple Silicon, built incrementally on top of Hugging Face Transformers. Each technique is implemented from scratch and benchmarked to study serving optimizations.**
+
+ tiny LLM inference engine for Apple Silicon on top of Hugging Face Transformers to study
+serving optimizations. 
 
 [Motivation](#motivation) · [Development Phases](#development-phases) · [Project Structure](#project-structure) · [Getting Started](#getting-started)
 
@@ -73,12 +76,13 @@ NanoServe/
 
 ## Getting Started
 
-### Prerequisites
+#### Prerequisites
+
 - `Python 3.12+`
 - [`uv`](https://docs.astral.sh/uv/getting-started/installation/)
 - `CUDA GPU, Apple Silicon (MPS), or CPU`
 
-### Install
+#### Install
 
 ```bash
 git clone https://github.com/arponkapuria/NanoServe.git
@@ -86,25 +90,25 @@ cd NanoServe
 uv sync
 ```
 
-### Run a benchmark
+#### Run a benchmark
 
 Prompt presets (`short`, `medium`, `long`, `prefix_shared`) are defined in `settings.py`, each with its own `max_new_tokens` length.
 
-**Naive Decode**
+0. **Naive Decode**
   
 ```bash
 # Naive decode (baseline)
 uv run python benchmark.py --preset medium  
 ```
 
-**Key Value Caching**
+1. **KV Caching**
 
 ```bash
 # KV cache
 uv run python benchmark.py --preset medium --use-kv-cache 
 ``` 
 
-**KV Cache Memory Management**
+2. **KV Cache Memory Management**
 
 ```bash
 # KV cache + PagedAttention
@@ -114,14 +118,14 @@ uv run python benchmark.py --preset medium --use-paged-kv
 uv run python test_fragmentation.py 
 ```
 
-**Continuous Batching**
+3. **Continuous Batching**
 
 ```bash
 # Continuous batching (sequential vs. batched, same requests, same pool)
 uv run python continuous_batch_benchmark.py
 ```
 
-**Scheduler**
+4. **Scheduler**
 
 ```bash
 # Scheduler (two-wave burst: admits, backpressure, timeouts, clean recovery)
@@ -131,7 +135,7 @@ uv run scheduler_benchmark.py --wave full --use-scheduler
 uv run scheduler_benchmark.py --wave full
 ```
 
-**Prefix Caching**
+5. **Prefix Caching**
 
 ```bash
 # Prefix Cache + RadixAttention — single-request (miss/partial/full hit conditions)
@@ -145,7 +149,7 @@ uv run python radix_ramp_benchmark.py --use-scheduler
 uv run python radix_capacity_savings.py results/radix_ramp_radix_on_schedule_on.json
 ```
 
-**Chunked Prefill**
+6. **Chunked Prefill**
 
 ```bash
 # Chunked prefill — single long prompt alone (overhead + correctness)
